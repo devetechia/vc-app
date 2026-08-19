@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Generador de Iconos - Vida Cristiana</title>
+    <style>
+        body { font-family: sans-serif; background: #111; color: #fff; padding: 40px; text-align: center; }
+        h1 { margin-bottom: 20px; }
+        p { color: #999; margin-bottom: 30px; }
+        .icons { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
+        .icon-box { background: #1a1a1a; border: 1px solid #333; border-radius: 12px; padding: 20px; text-align: center; }
+        .icon-box canvas { display: block; margin: 0 auto 10px; border-radius: 8px; }
+        .icon-box span { font-size: 12px; color: #666; }
+        .icon-box a { display: block; margin-top: 8px; color: #8B5CF6; text-decoration: none; font-size: 13px; }
+        .icon-box a:hover { text-decoration: underline; }
+        button { background: #8B5CF6; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; cursor: pointer; margin: 10px; }
+        button:hover { background: #6D28D9; }
+        .logo-preview { max-width: 200px; margin: 0 auto 30px; }
+    </style>
+</head>
+<body>
+    <h1>Generador de Iconos</h1>
+    <img src="logo.svg" alt="Logo" class="logo-preview">
+    <p>Haz clic en "Generar" y luego descarga cada icono con clic derecho → "Guardar imagen como..."</p>
+    <button onclick="generateAll()">Generar Todos</button>
+    <div class="icons" id="icons"></div>
+
+    <script>
+        const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+        const logoUrl = 'logo.svg';
+
+        function drawIcon(size) {
+            return new Promise((resolve) => {
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                const r = size * 0.18;
+
+                // Background
+                ctx.fillStyle = '#0a0a0a';
+                ctx.beginPath();
+                ctx.roundRect(0, 0, size, size, r);
+                ctx.fill();
+
+                // Load and draw logo
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    const padding = size * 0.15;
+                    const imgSize = size - padding * 2;
+                    ctx.drawImage(img, padding, padding, imgSize, imgSize);
+                    resolve(canvas);
+                };
+                img.onerror = () => {
+                    // Fallback if logo fails to load
+                    ctx.fillStyle = '#D4A843';
+                    ctx.font = `bold ${size * 0.35}px serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('✝', size / 2, size * 0.4);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = `bold ${size * 0.1}px sans-serif`;
+                    ctx.fillText('VIDA', size / 2, size * 0.65);
+                    ctx.fillText('CRISTIANA', size / 2, size * 0.78);
+                    resolve(canvas);
+                };
+                img.src = logoUrl;
+            });
+        }
+
+        async function generateAll() {
+            const container = document.getElementById('icons');
+            container.innerHTML = '';
+
+            for (const size of sizes) {
+                const canvas = await drawIcon(size);
+                const box = document.createElement('div');
+                box.className = 'icon-box';
+
+                const display = document.createElement('canvas');
+                display.width = Math.min(size, 200);
+                display.height = Math.min(size, 200);
+                display.getContext('2d').drawImage(canvas, 0, 0, display.width, display.height);
+
+                const label = document.createElement('span');
+                label.textContent = `${size}x${size}`;
+
+                const link = document.createElement('a');
+                link.href = canvas.toDataURL('image/png');
+                link.download = `icon-${size}x${size}.png`;
+                link.textContent = 'Descargar';
+
+                box.appendChild(display);
+                box.appendChild(label);
+                box.appendChild(link);
+                container.appendChild(box);
+            }
+        }
+
+        generateAll();
+    </script>
+</body>
+</html>

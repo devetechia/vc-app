@@ -1,0 +1,53 @@
+{
+  "name": "Iglesia Vida Cristiana",
+  "short_name": "Vida Cristiana",
+  "description": "App oficial de la Iglesia Vida Cristiana - Valencia",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#8B5CF6",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "es",
+  "categories": ["religion", "lifestyle"],
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Predicaciones",
+      "short_name": "Predicaciones",
+      "url": "/?screen=predicaciones",
+      "description": "Ver las últimas predicaciones"
+    },
+    {
+      "name": "YouTube",
+      "short_name": "YouTube",
+      "url": "/?screen=youtube",
+      "description": "Canal de YouTube"
+    },
+    {
+      "name": "Donativos",
+      "short_name": "Donativos",
+      "url": "/?screen=donativos",
+      "description": "Hacer un donativo"
+    }
+  ]
+}

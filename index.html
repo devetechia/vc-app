@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iglesia Vida Cristiana</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="#inicio" class="nav-logo">
+                <img src="logos/logo vc.png" alt="Vida Cristiana" class="nav-logo-img">
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Menú">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="#inicio" class="nav-link active">Inicio</a></li>
+                <li><a href="#nosotros" class="nav-link">Quiénes Somos</a></li>
+                <li><a href="#que-hacemos" class="nav-link">¿Qué Hacemos?</a></li>
+                <li><a href="#predicaciones" class="nav-link">Predicaciones</a></li>
+                <li><a href="#donativos" class="nav-link">Donativos</a></li>
+                <li><a href="#contacto" class="nav-link">Contacto</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero" id="inicio">
+        <div class="hero-particles" id="particles"></div>
+        <div class="hero-content">
+            <p class="hero-subtitle animate-in">Bienvenidos a</p>
+            <h1 class="hero-title animate-in">Iglesia Vida Cristiana</h1>
+            <p class="hero-desc animate-in">Una familia unida en fe, amor y esperanza</p>
+            <div class="hero-buttons animate-in">
+                <a href="#nosotros" class="btn btn-primary">Conócenos</a>
+                <a href="https://www.youtube.com/channel/UCRpj-vU_Nu6UaxJJvGI7jAA" target="_blank" class="btn btn-outline">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                    YouTube
+                </a>
+            </div>
+        </div>
+        <div class="hero-scroll">
+            <span>Scroll</span>
+            <div class="scroll-line"></div>
+        </div>
+    </section>
+
+    <!-- Quiénes Somos -->
+    <section class="section" id="nosotros">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Nuestra Historia</span>
+                <h2 class="section-title">Quiénes Somos</h2>
+                <div class="section-line"></div>
+            </div>
+            <div class="about-grid">
+                <div class="about-text reveal">
+                    <h3>Somos una gran familia</h3>
+                    <p>Diversas culturas y generaciones con una fe común y una relación personal con Dios, buscamos aplicar a la vida cotidiana los valores y principios enseñados por Jesucristo para formar familias fuertes y ciudadanos responsables.</p>
+                    <div class="about-features">
+                        <div class="feature">
+                            <div class="feature-icon">📖</div>
+                            <div>
+                                <h4>Enfoque Evangelélico</h4>
+                                <p>Compartir las Buenas Noticias del Evangelio y aplicar sus enseñanzas.</p>
+                            </div>
+                        </div>
+                        <div class="feature">
+                            <div class="feature-icon">👨‍👩‍👧‍👦</div>
+                            <div>
+                                <h4>Familias Saludables</h4>
+                                <p>Ser una herramienta para ayudar a crear familias saludables.</p>
+                            </div>
+                        </div>
+                        <div class="feature">
+                            <div class="feature-icon">🤝</div>
+                            <div>
+                                <h4>Acción Social</h4>
+                                <p>Servir a nuestra comunidad a través de la acción social.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="about-image reveal">
+                    <div class="image-wrapper">
+                        <img src="https://images.unsplash.com/photo-1438032005730-c779502df39b?w=600&h=400&fit=crop" alt="Iglesia" loading="lazy">
+                        <div class="image-accent"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pastores -->
+            <div class="pastors-section reveal">
+                <h3 class="pastors-title">Nuestro Consejo Pastoral</h3>
+                <div class="pastors-grid">
+                    <div class="pastor-card" id="pastor-ana">
+                        <video class="pastor-video" muted loop preload="metadata" src="pastores/ana video.mp4"></video>
+                        <img src="pastores/Ana.jpeg" alt="Ana Domínguez" class="pastor-avatar-img">
+                        <h4>Ana Domínguez</h4>
+                        <span class="pastor-role">Pastora</span>
+                    </div>
+                    <div class="pastor-card" id="pastor-juanjo">
+                        <video class="pastor-video" muted loop preload="metadata" src="pastores/video juanjo.mp4"></video>
+                        <img src="pastores/Juanjo.jpeg" alt="Juan José López Sanz" class="pastor-avatar-img">
+                        <h4>Juan José López Sanz</h4>
+                        <span class="pastor-role">Pastor</span>
+                    </div>
+                    <div class="pastor-card">
+                        <img src="pastores/jorge.jpeg" alt="Jorge Pérez" class="pastor-avatar-img">
+                        <h4>Jorge Pérez</h4>
+                        <span class="pastor-role">Consejero</span>
+                    </div>
+                    <div class="pastor-card">
+                        <img src="pastores/jose.jpeg" alt="Jose Suárez" class="pastor-avatar-img">
+                        <h4>Jose Suárez</h4>
+                        <span class="pastor-role">Consejero</span>
+                    </div>
+                    <div class="pastor-card">
+                        <img src="pastores/eloisa.jpeg" alt="Eloisa Salvatierra" class="pastor-avatar-img">
+                        <h4>Eloisa Salvatierra</h4>
+                        <span class="pastor-role">Consejera</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Qué Hacemos -->
+    <section class="section section-dark" id="que-hacemos">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Actividades</span>
+                <h2 class="section-title">¿Qué Hacemos?</h2>
+                <div class="section-line"></div>
+            </div>
+            <div class="activities-grid">
+                <div class="activity-card reveal">
+                    <div class="activity-icon-wrapper">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                    </div>
+                    <h3>Estudios Bíblicos</h3>
+                    <p>Estudiamos la Palabra de Dios cada miércoles y viernes para crecer en fe y conocimiento.</p>
+                    <div class="activity-schedule">
+                        <span>MIÉ & VIE</span> 20:00 - 21:30
+                    </div>
+                </div>
+                <div class="activity-card reveal">
+                    <div class="activity-icon-wrapper">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </div>
+                    <h3>Reuniones en Vivo</h3>
+                    <p>Nuestras reuniones dominicales transmitidas en vivo por YouTube para toda la comunidad.</p>
+                    <div class="activity-schedule">
+                        <span>DOM</span> 10:30 - 14:00
+                    </div>
+                </div>
+                <a href="https://www.asociacionmasquepalabras.com/" target="_blank" class="activity-card reveal" style="text-decoration:none; color:inherit;">
+                    <div class="activity-icon-wrapper">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    </div>
+                    <h3>Acción Social</h3>
+                    <p>Servimos a nuestra comunidad con amor a través de programas de ayuda y apoyo social.</p>
+                    <div class="activity-schedule">
+                        <span>Ver más...</span>
+                    </div>
+                </a>
+                <div class="activity-card reveal">
+                    <div class="activity-icon-wrapper">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                    </div>
+                    <h3>Devocionales</h3>
+                    <p>Contenido devocional para fortalecer tu relación personal con Dios día a día.</p>
+                    <div class="activity-schedule">
+                        <span>EN LÍNEA</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- YouTube -->
+    <section class="section youtube-section" id="youtube">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Canal</span>
+                <h2 class="section-title">Descubre Vida Cristiana</h2>
+                <div class="section-line"></div>
+                <p class="section-desc">En nuestro canal de YouTube encontrarás todas nuestras reuniones y estudios bíblicos. Suscríbete para recibir nuestros vídeos.</p>
+            </div>
+            <div class="youtube-embed reveal">
+                <iframe 
+                    width="100%" 
+                    height="400" 
+                    src="https://www.youtube-nocookie.com/embed/g8OetzEciWQ" 
+                    title="Canal YouTube Vida Cristiana"
+                    frameborder="0" 
+                    allow="picture-in-picture" 
+                    allowfullscreen
+                    loading="lazy">
+                </iframe>
+            </div>
+            <div class="youtube-cta reveal">
+                <a href="https://www.youtube.com/channel/UCRpj-vU_Nu6UaxJJvGI7jAA" target="_blank" class="btn btn-youtube">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                    Suscríbete en YouTube
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Predicaciones -->
+    <section class="section" id="predicaciones">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Palabra</span>
+                <h2 class="section-title">Últimas Predicaciones</h2>
+                <div class="section-line"></div>
+            </div>
+            <div class="sermons-grid">
+                <div class="sermon-card reveal" data-video="g8OetzEciWQ">
+                    <div class="sermon-thumb">
+                        <img src="https://img.youtube.com/vi/g8OetzEciWQ/maxresdefault.jpg" alt="Predicación" loading="lazy">
+                        <div class="sermon-play">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                        <span class="sermon-badge">Reciente</span>
+                    </div>
+                    <div class="sermon-embed"></div>
+                    <div class="sermon-info">
+                        <h3>Reflexiones sobre la brevedad de la vida</h3>
+                        <p class="sermon-pastor">Juan José López</p>
+                    </div>
+                </div>
+                <div class="sermon-card reveal" data-video="E1gk9wx0vLc">
+                    <div class="sermon-thumb">
+                        <img src="https://img.youtube.com/vi/E1gk9wx0vLc/maxresdefault.jpg" alt="Predicación" loading="lazy">
+                        <div class="sermon-play">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                        <span class="sermon-badge">Reciente</span>
+                    </div>
+                    <div class="sermon-embed"></div>
+                    <div class="sermon-info">
+                        <h3>Desarrollando una confianza plena en Dios</h3>
+                        <p class="sermon-pastor">Joni</p>
+                    </div>
+                </div>
+                <div class="sermon-card reveal" data-video="oUNQqm9FseI">
+                    <div class="sermon-thumb">
+                        <img src="https://img.youtube.com/vi/oUNQqm9FseI/maxresdefault.jpg" alt="Predicación" loading="lazy">
+                        <div class="sermon-play">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                    </div>
+                    <div class="sermon-embed"></div>
+                    <div class="sermon-info">
+                        <h3>¿Por qué buscar a Jesús?</h3>
+                        <p class="sermon-pastor">Juan Gracia</p>
+                    </div>
+                </div>
+                <div class="sermon-card reveal" data-video="RzptEbKelio">
+                    <div class="sermon-thumb">
+                        <img src="https://img.youtube.com/vi/RzptEbKelio/maxresdefault.jpg" alt="Predicación" loading="lazy">
+                        <div class="sermon-play">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                    </div>
+                    <div class="sermon-embed"></div>
+                    <div class="sermon-info">
+                        <h3>Aferrate a Dios</h3>
+                        <p class="sermon-pastor">Jonatan Garcia</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Horarios -->
+    <section class="section section-dark" id="horarios">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Agenda</span>
+                <h2 class="section-title">Horarios</h2>
+                <div class="section-line"></div>
+            </div>
+            <div class="schedule-grid reveal">
+                <div class="schedule-card">
+                    <div class="schedule-day">Lunes</div>
+                    <div class="schedule-time closed">Cerrado</div>
+                </div>
+                <div class="schedule-card">
+                    <div class="schedule-day">Martes</div>
+                    <div class="schedule-time closed">Cerrado</div>
+                </div>
+                <div class="schedule-card active">
+                    <div class="schedule-day">Miércoles</div>
+                    <div class="schedule-time">20:00 - 21:30</div>
+                    <div class="schedule-desc">Estudio Bíblico</div>
+                </div>
+                <div class="schedule-card">
+                    <div class="schedule-day">Jueves</div>
+                    <div class="schedule-time closed">Cerrado</div>
+                </div>
+                <div class="schedule-card active">
+                    <div class="schedule-day">Viernes</div>
+                    <div class="schedule-time">20:00 - 21:30</div>
+                    <div class="schedule-desc">Estudio Bíblico</div>
+                </div>
+                <div class="schedule-card active">
+                    <div class="schedule-day">Sábado</div>
+                    <div class="schedule-time">17:00 - 21:00</div>
+                    <div class="schedule-desc">Reunión</div>
+                </div>
+                <div class="schedule-card active highlight">
+                    <div class="schedule-day">Domingo</div>
+                    <div class="schedule-time">10:30 - 14:00</div>
+                    <div class="schedule-desc">Reunión General</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Donativos -->
+    <section class="section" id="donativos">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Generosidad</span>
+                <h2 class="section-title">Tu Generosidad Cambia el Mundo</h2>
+                <div class="section-line"></div>
+            </div>
+            <div class="donate-verse reveal">
+                <blockquote>"Den, y se les dará: se les echará en el regazo una medida llena, apretada, sacudida y desbordante. Porque con la medida que midan a otros, se les medirá a ustedes."</blockquote>
+                <cite>— Lucas 6:38</cite>
+            </div>
+            <div class="donate-grid">
+                <div class="donate-card reveal">
+                    <div class="donate-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                    </div>
+                    <h3>Transferencia Bancaria</h3>
+                    <p class="donate-iban">ES89 2100 5052 0702 0001 4366</p>
+                    <button class="btn btn-copy" onclick="copyToClipboard('ES8921005052070200014366')">Copiar IBAN</button>
+                </div>
+                <div class="donate-card reveal">
+                    <div class="donate-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                    </div>
+                    <h3>Bizum</h3>
+                    <p class="donate-bizum">Código: <strong>01097</strong></p>
+                    <p class="donate-name">Iglesia Vida Cristiana</p>
+                    <p class="donate-phone">Telf: 655 89 24 20</p>
+                </div>
+                <div class="donate-card reveal">
+                    <div class="donate-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    </div>
+                    <h3>Tipo de Donativo</h3>
+                    <div class="donate-types">
+                        <span class="donate-type">Ofrenda</span>
+                        <span class="donate-type">Diezmo</span>
+                        <span class="donate-type">Acción Social</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contacto -->
+    <section class="section section-dark" id="contacto">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Comunícate</span>
+                <h2 class="section-title">Contáctanos</h2>
+                <div class="section-line"></div>
+            </div>
+            <div class="contact-grid">
+                <div class="contact-card reveal">
+                    <div class="contact-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                    </div>
+                    <h3>Llámanos</h3>
+                    <p>+34 655 89 24 20</p>
+                    <span class="contact-detail">Horario: 9:00 - 14:00 / 16:00 - 21:30</span>
+                </div>
+                <div class="contact-card reveal">
+                    <div class="contact-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    </div>
+                    <h3>Escríbenos</h3>
+                    <p>pastor@iglesiavidacristiana.es</p>
+                    <span class="contact-detail">info@vidacristiana.es</span>
+                </div>
+                <div class="contact-card reveal">
+                    <div class="contact-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    </div>
+                    <h3>Visítanos</h3>
+                    <p>C/ Reverendo Rafael Tramoyeres 39, bajo</p>
+                    <span class="contact-detail">Metro Benimaclet, 46020 Valencia</span>
+                </div>
+            </div>
+
+            <!-- Social Links -->
+            <div class="social-links reveal">
+                <a href="https://www.facebook.com/vidacristianabenimaclet" target="_blank" class="social-link" aria-label="Facebook">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                </a>
+                <a href="https://www.instagram.com/iglesiavidacristianabenimaclet/" target="_blank" class="social-link" aria-label="Instagram">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                </a>
+                <a href="https://www.youtube.com/channel/UCRpj-vU_Nu6UaxJJvGI7jAA" target="_blank" class="social-link" aria-label="YouTube">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 Iglesia Vida Cristiana. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <!-- Toast notification -->
+    <div class="toast" id="toast">IBAN copiado al portapapeles</div>
+
+    <!-- Biblical Study Modal -->
+    <div class="bible-modal" id="bibleModal">
+        <div class="bible-modal-content">
+            <button class="bible-modal-close" id="bibleModalClose">&times;</button>
+            <div class="bible-modal-header">
+                <div class="bible-modal-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg>
+                </div>
+                <h2>Estudio Bíblico</h2>
+                <p class="bible-modal-subtitle" id="bibleModalSubtitle"></p>
+            </div>
+            <div class="bible-modal-body" id="bibleModalBody">
+                <div class="bible-loading" id="bibleLoading">
+                    <div class="bible-loading-spinner"></div>
+                    <p>Analizando predicación con IA...</p>
+                    <p class="bible-loading-sub">Obteniendo transcripción y versículos</p>
+                </div>
+                <div class="bible-results" id="bibleResults" style="display:none;">
+                    <button class="btn-copy-study" id="btnCopyStudy">📋 Copiar todo</button>
+                    <div class="bible-section" id="bibleSummary">
+                        <h3>📖 Resumen</h3>
+                        <div class="bible-section-content"></div>
+                    </div>
+                    <div class="bible-section" id="bibleMessage">
+                        <h3>💡 Mensaje Principal</h3>
+                        <div class="bible-section-content"></div>
+                    </div>
+                    <div class="bible-section" id="bibleVerses">
+                        <h3>✝️ Versículos Mencionados</h3>
+                        <div class="bible-verses-list"></div>
+                    </div>
+                    <div class="bible-section" id="bibleContext">
+                        <h3>🔍 Contexto y Explicación</h3>
+                        <div class="bible-section-content"></div>
+                    </div>
+                    <div class="bible-section" id="bibleStudy">
+                        <h3>📚 Para Profundizar</h3>
+                        <div class="bible-section-content"></div>
+                    </div>
+                </div>
+                <div class="bible-error" id="bibleError" style="display:none;">
+                    <p>No se pudo generar el estudio. Verifica tu conexión e inténtalo de nuevo.</p>
+                    <button class="btn btn-purple" id="bibleRetry">Reintentar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

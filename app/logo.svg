@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">
+  <defs>
+    <linearGradient id="smoke" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#B0E0E6;stop-opacity:0.8"/>
+      <stop offset="50%" style="stop-color:#87CEEB;stop-opacity:0.6"/>
+      <stop offset="100%" style="stop-color:#ADD8E6;stop-opacity:0.3"/>
+    </linearGradient>
+    <clipPath id="fingerprint">
+      <path d="M250 580 C160 560, 100 480, 100 400 C100 280, 200 180, 320 180 C400 180, 460 230, 480 300 C500 360, 480 420, 440 460 C400 500, 350 510, 320 490 C290 470, 280 430, 300 400 C320 370, 360 360, 380 380"/>
+    </clipPath>
+  </defs>
+
+  <!-- Fingerprint concentric arcs -->
+  <g fill="none" stroke="#1a1a1a" stroke-width="6" stroke-linecap="round">
+    <!-- Outer arcs -->
+    <path d="M400 580 C200 560, 80 440, 80 320 C80 160, 220 60, 380 60 C520 60, 640 180, 640 320 C640 440, 540 540, 420 560"/>
+    <path d="M400 550 C230 530, 120 430, 120 330 C120 200, 240 100, 380 100 C500 100, 600 200, 600 330 C600 430, 510 510, 410 530"/>
+    <path d="M400 520 C260 500, 160 420, 160 340 C160 230, 260 140, 380 140 C480 140, 560 230, 560 340 C560 420, 480 480, 400 500"/>
+    <path d="M400 490 C290 470, 200 400, 200 340 C200 260, 280 180, 380 180 C460 180, 520 260, 520 340 C520 400, 450 460, 400 470"/>
+    <path d="M400 460 C320 445, 240 390, 240 340 C240 280, 300 220, 380 220 C440 220, 480 280, 480 340 C480 390, 430 435, 400 440"/>
+    <path d="M400 430 C340 420, 290 380, 290 340 C290 300, 330 260, 380 260 C420 260, 440 300, 440 340 C440 380, 420 415, 400 420"/>
+    <path d="M400 400 C360 395, 330 370, 330 340 C330 315, 350 290, 380 290 C400 290, 410 315, 410 340 C410 370, 405 390, 400 395"/>
+    <!-- Inner detail lines -->
+    <path d="M350 480 C310 460, 260 410, 260 350 C260 290, 310 230, 380 230 C430 230, 470 290, 470 350 C470 410, 430 450, 380 470" opacity="0.7"/>
+    <path d="M370 450 C340 440, 300 400, 300 350 C300 300, 340 260, 380 260 C410 260, 430 300, 430 350 C430 400, 400 435, 380 440" opacity="0.5"/>
+  </g>
+
+  <!-- White cross in center -->
+  <g fill="white">
+    <rect x="370" y="250" width="20" height="140" rx="3"/>
+    <rect x="340" y="310" width="80" height="20" rx="3"/>
+  </g>
+
+  <!-- Blue smoke/ribbon on right -->
+  <path d="M500 520 C520 480, 580 440, 620 380 C660 320, 680 260, 660 220 C640 180, 600 180, 580 200 C560 220, 560 260, 580 300 C600 340, 640 360, 660 340 C680 320, 670 280, 640 260" 
+        fill="none" stroke="url(#smoke)" stroke-width="40" stroke-linecap="round" opacity="0.7"/>
+  <path d="M520 540 C540 500, 600 460, 640 400 C680 340, 700 280, 680 240 C660 200, 620 200, 600 220 C580 240, 580 280, 600 320" 
+        fill="none" stroke="#ADD8E6" stroke-width="25" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- VIDA text -->
+  <text x="600" y="310" text-anchor="middle" fill="#1a1a1a" font-family="Georgia, 'Times New Roman', serif" font-size="68" font-weight="bold" letter-spacing="8">VIDA</text>
+
+  <!-- CRISTIANA text -->
+  <text x="600" y="370" text-anchor="middle" fill="#1a1a1a" font-family="Georgia, 'Times New Roman', serif" font-size="36" letter-spacing="12">CRISTIANA</text>
+
+  <!-- Donde cada vida cuenta - red cursive -->
+  <text x="400" y="680" text-anchor="middle" fill="#CC0000" font-family="'Brush Script MT', 'Lucida Handwriting', 'Segoe Script', cursive" font-size="52" font-style="italic">Donde cada vida cuenta</text>
+</svg>
