@@ -15,6 +15,8 @@ function loadSermons() {
     if (!grid) return;
 
     fetchLatestVideos(4).then(videos => {
+        if (!videos || videos.length === 0) return;
+
         grid.innerHTML = videos.map((item, i) => {
             const id = item.id.videoId;
             const title = item.snippet.title;
@@ -51,7 +53,9 @@ function loadSermons() {
         });
 
         initSermonClicks();
-    }).catch(err => console.error('Error loading sermons:', err));
+    }).catch(err => {
+        console.error('Error loading sermons:', err);
+    });
 }
 
 function initSermonClicks() {
