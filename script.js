@@ -1,7 +1,7 @@
 // ===== YOUTUBE API CONFIG =====
 const YT_API_KEY = 'AIzaSyBcbSSyNgUn5yiVxQJ0-yTUj1eVEU1dCu8';
 const YT_CHANNEL_ID = 'UCRpj-vU_Nu6UaxJJvGI7jAA';
-const BACKEND_URL = 'http://localhost:5000';
+const OPENROUTER_KEY = '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';
 
 async function fetchLatestVideos(maxResults = 4) {
     const url = `https://www.googleapis.com/youtube/v3/search?key=${YT_API_KEY}&channelId=${YT_CHANNEL_ID}&part=snippet&order=date&maxResults=${maxResults}&type=video`;
@@ -226,9 +226,30 @@ function initPastorVideo() {
 // ===== BIBLICAL STUDY =====
 async function getYouTubeTranscript(videoId) {
     try {
-        const response = await fetch(`${BACKEND_URL}/api/transcript?videoId=${videoId}`);
-        const data = await response.json();
-        return data.transcript || null;
+        const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}`;
+        const res = await fetch(proxyUrl);
+        const html = await res.text();
+
+        const match = html.match(/"captions":\s*(\{.*?"playerCaptionsTracklistRenderer".*?\})\s*,\s*"videoDetails"/s);
+        if (!match) return null;
+
+        const captionsData = JSON.parse(match[1]);
+        const tracks = captionsData?.playerCaptionsTracklistRenderer?.captionTracks;
+        if (!tracks || tracks.length === 0) return null;
+
+        const langTrack = tracks.find(t => t.languageCode === 'es') || tracks[0];
+        const captionUrl = langTrack.baseUrl;
+
+        const captionRes = await fetch(captionUrl);
+        const captionXml = await captionRes.text();
+
+        const texts = [];
+        const regex = /<text[^>]*>(.*?)<\/text>/g;
+        let m;
+        while ((m = regex.exec(captionXml)) !== null) {
+            texts.push(m[1].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/<[^>]*>/g, ''));
+        }
+        return texts.join(' ') || null;
     } catch (error) {
         console.error('Error getting transcript:', error);
         return null;
@@ -236,19 +257,51 @@ async function getYouTubeTranscript(videoId) {
 }
 
 async function analyzeWithGemini(transcript, videoTitle) {
-    const response = await fetch(`${BACKEND_URL}/api/study`, {
+    const prompt = `Eres un experto en estudios bíblicos. Analiza la siguiente predicación cristiana y proporciona:
+
+1. RESUMEN: Un resumen claro y conciso (3-4 párrafos)
+
+2. MENSAJE PRINCIPAL: El mensaje central más importante
+
+3. VERSÍCULOS MENCIONADOS: Lista cada versículo con:
+   - Referencia completa (Libro Capítulo:Versículo)
+   - El texto del versículo
+   - Por qué se mencionó en la predicación
+
+4. CONTEXTO Y EXPLICACIÓN: Contexto histórico y espiritual
+
+5. PARA PROFUNDIZAR: Temas para estudio personal
+
+Título: ${videoTitle}
+
+Transcripción:
+${transcript || 'No disponible. Analiza solo por el título: ' + videoTitle}
+
+Responde en español con secciones claras usando markdown.`;
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript, title: videoTitle })
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${OPENROUTER_KEY}`,
+            'HTTP-Referer': window.location.origin,
+            'X-Title': 'Iglesia Vida Cristiana'
+        },
+        body: JSON.stringify({
+            model: 'poolside/laguna-s-2.1:free',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.7,
+            max_tokens: 4096
+        })
     });
 
     const data = await response.json();
-    
-    if (data.result) {
-        return data.result;
+
+    if (data.choices && data.choices[0]) {
+        return data.choices[0].message.content;
     }
-    
-    throw new Error(data.error || 'No se pudo obtener respuesta de la IA');
+
+    throw new Error(data.error?.message || 'No se pudo obtener respuesta de la IA');
 }
 
 function parseAIResponse(text) {
