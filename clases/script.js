@@ -18,38 +18,124 @@ async function fetchYouTubeVideos(maxResults = 50) {
     }));
 }
 
-// ===== TRANSCRIPT (CORS proxy + YouTube captions) =====
+// ===== TRANSCRIPT (YouTube IFrame Player API) =====
+let ytPlayerReady = false;
+let ytPlayerPromiseResolve = null;
+const ytPlayerPromise = new Promise(r => { ytPlayerPromiseResolve = r; });
+
+function loadYouTubeIFrameAPI() {
+    if (window.YT && window.YT.Player) { ytPlayerReady = true; ytPlayerPromiseResolve(); return; }
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+    window.onYouTubeIframeAPIReady = () => { ytPlayerReady = true; ytPlayerPromiseResolve(); };
+}
+
+loadYouTubeIFrameAPI();
+
 async function getYouTubeTranscript(videoId) {
     try {
-        const targetUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-        const res = await fetch(proxyUrl);
-        const html = await res.text();
+        // Method 1: Use YouTube's timedtext API directly (works for public captions)
+        const playerUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        const oEmbedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(playerUrl)}&format=json`;
+        await fetch(oEmbedUrl);
 
-        const match = html.match(/"captions":\s*(\{.*?"playerCaptionsTracklistRenderer".*?\})\s*,\s*"videoDetails"/s);
-        if (!match) return null;
+        // Try fetching captions via the timedtext endpoint
+        const timedtextUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=es&fmt=srv3`;
+        const res = await fetch(timedtextUrl);
+        const xml = await res.text();
 
-        const captionsData = JSON.parse(match[1]);
-        const tracks = captionsData?.playerCaptionsTracklistRenderer?.captionTracks;
-        if (!tracks || tracks.length === 0) return null;
-
-        const langTrack = tracks.find(t => t.languageCode === 'es') || tracks[0];
-        const captionRes = await fetch(langTrack.baseUrl);
-        const captionXml = await captionRes.text();
-
-        const entries = [];
-        const regex = /<text start="([\d.]+)"[^>]*>(.*?)<\/text>/g;
-        let m;
-        while ((m = regex.exec(captionXml)) !== null) {
-            const start = parseFloat(m[1]);
-            const text = m[2].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/<[^>]*>/g, '').trim();
-            if (text) entries.push({ start, text });
+        if (xml.includes('<text')) {
+            const entries = [];
+            const regex = /<text start="([\d.]+)"[^>]*>(.*?)<\/text>/g;
+            let m;
+            while ((m = regex.exec(xml)) !== null) {
+                const start = parseFloat(m[1]);
+                const text = m[2].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/<[^>]*>/g, '').trim();
+                if (text) entries.push({ start, text });
+            }
+            if (entries.length > 0) return entries;
         }
-        return entries;
+
+        // Method 2: Try with English captions if Spanish not available
+        const timedtextEn = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=en&fmt=srv3`;
+        const resEn = await fetch(timedtextEn);
+        const xmlEn = await resEn.text();
+
+        if (xmlEn.includes('<text')) {
+            const entries = [];
+            const regex = /<text start="([\d.]+)"[^>]*>(.*?)<\/text>/g;
+            let m;
+            while ((m = regex.exec(xmlEn)) !== null) {
+                const start = parseFloat(m[1]);
+                const text = m[2].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/<[^>]*>/g, '').trim();
+                if (text) entries.push({ start, text });
+            }
+            if (entries.length > 0) return entries;
+        }
+
+        // Method 3: Fallback - use hidden player to extract captions
+        return await getTranscriptViaPlayer(videoId);
     } catch (error) {
         console.error('Error getting transcript:', error);
         return null;
     }
+}
+
+function getTranscriptViaPlayer(videoId) {
+    return new Promise((resolve) => {
+        ytPlayerPromise.then(() => {
+            const container = document.createElement('div');
+            container.id = 'yt-transcript-player-' + videoId;
+            container.style.cssText = 'position:fixed;bottom:-9999px;left:-9999px;width:1px;height:1px;';
+            document.body.appendChild(container);
+
+            const player = new YT.Player(container.id, {
+                videoId: videoId,
+                playerVars: { autoplay: 0, controls: 0, cc_load_policy: 1, cc_lang_pref: 'es' },
+                events: {
+                    onReady: () => {
+                        setTimeout(() => {
+                            try {
+                                const data = player.getVideoData();
+                                const captions = player.getPlayerResponse?.()?.captions;
+                                if (captions?.playerCaptionsTracklistRenderer?.captionTracks) {
+                                    const tracks = captions.playerCaptionsTracklistRenderer.captionTracks;
+                                    const track = tracks.find(t => t.languageCode === 'es') || tracks[0];
+                                    if (track?.baseUrl) {
+                                        fetch(track.baseUrl + '&fmt=srv3').then(r => r.text()).then(xml => {
+                                            const entries = [];
+                                            const regex = /<text start="([\d.]+)"[^>]*>(.*?)<\/text>/g;
+                                            let m;
+                                            while ((m = regex.exec(xml)) !== null) {
+                                                const start = parseFloat(m[1]);
+                                                const text = m[2].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/<[^>]*>/g, '').trim();
+                                                if (text) entries.push({ start, text });
+                                            }
+                                            resolve(entries.length > 0 ? entries : null);
+                                        }).catch(() => resolve(null));
+                                    } else {
+                                        resolve(null);
+                                    }
+                                } else {
+                                    resolve(null);
+                                }
+                                player.destroy();
+                                container.remove();
+                            } catch (e) {
+                                resolve(null);
+                                try { player.destroy(); container.remove(); } catch {}
+                            }
+                        }, 1500);
+                    },
+                    onError: () => {
+                        resolve(null);
+                        try { container.remove(); } catch {}
+                    }
+                }
+            });
+        });
+    });
 }
 
 function filterTranscript(entries, skipMinutes = TRANSCRIPT_SKIP_MINUTES) {
