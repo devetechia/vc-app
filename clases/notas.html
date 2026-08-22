@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Apuntes - Academia Biblica</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar scrolled" id="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-logo">
+                <img src="logos/logo vc.png" alt="Vida Cristiana" class="nav-logo-img">
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="index.html" class="nav-link">Inicio</a></li>
+                <li><a href="predicaciones.html" class="nav-link">Predicaciones</a></li>
+                <li><a href="tests.html" class="nav-link">Tests</a></li>
+                <li><a href="notas.html" class="nav-link active">Mis Apuntes</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="studio-layout">
+        <div class="container">
+            <div class="section-header" style="padding-top:24px;">
+                <span class="section-tag">Personal</span>
+                <h2 class="section-title">Mis Apuntes</h2>
+                <div class="section-line"></div>
+                <p class="section-desc">Todos tus apuntes personales organizados por predicacion.</p>
+            </div>
+
+            <div class="notes-list" id="notesList"></div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>Academia Biblica - Iglesia Vida Cristiana 2026</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    <script>
+        document.getElementById('navToggle').addEventListener('click', () => {
+            document.getElementById('navToggle').classList.toggle('active');
+            document.getElementById('navLinks').classList.toggle('open');
+        });
+
+        function renderNotes() {
+            const notes = getNotes();
+            const container = document.getElementById('notesList');
+            const keys = Object.keys(notes);
+
+            if (!keys.length) {
+                container.innerHTML = '<div class="empty-state"><h3>Sin apuntes</h3><p>Cuando hagas estudio de una predicacion, podras guardar apuntes personales aqui.</p><a href="predicaciones.html" class="btn btn-primary btn-sm" style="margin-top:16px;">Ver predicaciones</a></div>';
+                return;
+            }
+
+            const allNotes = keys.map(k => ({ videoId: k, ...notes[k] })).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            container.innerHTML = allNotes.map(n => {
+                const date = new Date(n.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                const preview = n.text.substring(0, 120) + (n.text.length > 120 ? '...' : '');
+                return `
+                    <div class="note-item">
+                        <div class="note-info" style="flex:1; cursor:pointer;" onclick="window.location.href='estudio.html?id=${n.videoId}'">
+                            <h4>${preview}</h4>
+                            <p>${date}</p>
+                        </div>
+                        <div class="note-actions">
+                            <a href="estudio.html?id=${n.videoId}" class="btn btn-sm btn-outline">Editar</a>
+                            <button class="btn btn-sm btn-danger" onclick="deleteAndRefresh('${n.videoId}')">Eliminar</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function deleteAndRefresh(videoId) {
+            if (confirm('Eliminar este apunte?')) {
+                deleteNote(videoId);
+                renderNotes();
+                showToast('Apunte eliminado');
+            }
+        }
+
+        renderNotes();
+    </script>
+</body>
+</html>

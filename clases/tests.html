@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tests - Academia Biblica</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar scrolled" id="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-logo">
+                <img src="logos/logo vc.png" alt="Vida Cristiana" class="nav-logo-img">
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="index.html" class="nav-link">Inicio</a></li>
+                <li><a href="predicaciones.html" class="nav-link">Predicaciones</a></li>
+                <li><a href="tests.html" class="nav-link active">Tests</a></li>
+                <li><a href="notas.html" class="nav-link">Mis Apuntes</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="studio-layout">
+        <div class="container">
+            <!-- SELECT VIDEO -->
+            <div id="quizSelect">
+                <div class="section-header" style="padding-top:24px;">
+                    <span class="section-tag">Tests</span>
+                    <h2 class="section-title">Pon a prueba tu conocimiento</h2>
+                    <div class="section-line"></div>
+                    <p class="section-desc">Selecciona una predicacion y la IA generara 10 preguntas de opcion multiple.</p>
+                </div>
+                <div class="sermons-grid" id="quizSermons">
+                    <div class="loading"><div class="loading-spinner"></div><p>Cargando predicaciones...</p></div>
+                </div>
+
+                <div style="margin-top:48px;">
+                    <div class="section-header">
+                        <span class="section-tag">Historial</span>
+                        <h2 class="section-title">Tests anteriores</h2>
+                        <div class="section-line"></div>
+                    </div>
+                    <div class="notes-list" id="quizHistory"></div>
+                </div>
+            </div>
+
+            <!-- QUIZ IN PROGRESS -->
+            <div id="quizPlay" style="display:none;">
+                <div style="text-align:center; margin-bottom:24px;">
+                    <h2 id="quizPlayTitle" style="font-family:'Playfair Display',serif; font-size:20px; margin-bottom:8px;"></h2>
+                    <div class="quiz-progress" id="quizProgress"></div>
+                </div>
+                <div class="quiz-container" id="quizContainer"></div>
+                <div style="text-align:center; margin-top:24px;">
+                    <button class="btn btn-primary" id="btnSubmitQuiz" style="display:none;">Ver resultado</button>
+                </div>
+            </div>
+
+            <!-- QUIZ RESULT -->
+            <div id="quizResult" style="display:none;">
+                <div class="quiz-result" id="quizResultContent"></div>
+                <div style="text-align:center; margin-top:24px; display:flex; gap:12px; justify-content:center;">
+                    <button class="btn btn-outline" id="btnBackToList">Volver a la lista</button>
+                    <a href="estudio.html" class="btn btn-primary" id="btnBackToStudy">Ver estudio de la predicacion</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>Academia Biblica - Iglesia Vida Cristiana 2026</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    <script>
+        document.getElementById('navToggle').addEventListener('click', () => {
+            document.getElementById('navToggle').classList.toggle('active');
+            document.getElementById('navLinks').classList.toggle('open');
+        });
+
+        const preselectedId = getUrlParam('id');
+        let currentQuiz = [];
+        let currentVideoId = '';
+        let currentVideoTitle = '';
+        let answers = [];
+
+        // Load sermon list
+        fetchYouTubeVideos(50).then(videos => {
+            const grid = document.getElementById('quizSermons');
+            grid.innerHTML = videos.map(v => `
+                <div class="sermon-card" data-video-id="${v.id}" data-video-title="${v.title.replace(/"/g, '&quot;')}">
+                    <div class="sermon-thumb">
+                        <img src="${v.thumbnail}" alt="${v.title}" loading="lazy">
+                        <div class="sermon-play">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                    </div>
+                    <div class="sermon-info">
+                        <h3>${v.title}</h3>
+                        <p>${v.date}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            grid.querySelectorAll('.sermon-card').forEach(card => {
+                card.addEventListener('click', () => startQuiz(card.dataset.videoId, card.dataset.videoTitle));
+            });
+
+            renderQuizHistory();
+
+            if (preselectedId) {
+                const video = videos.find(v => v.id === preselectedId);
+                if (video) startQuiz(video.id, video.title);
+            }
+        });
+
+        function renderQuizHistory() {
+            const history = getQuizHistory();
+            const container = document.getElementById('quizHistory');
+            if (!history.length) {
+                container.innerHTML = '<div class="empty-state"><p>Aun no has hecho ningun test.</p></div>';
+                return;
+            }
+            container.innerHTML = history.map(h => `
+                <div class="note-item">
+                    <div class="note-info">
+                        <h4>${h.title}</h4>
+                        <p>${h.score}/${h.total} correctas - ${new Date(h.date).toLocaleDateString('es-ES')}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function startQuiz(videoId, title) {
+            currentVideoId = videoId;
+            currentVideoTitle = title;
+            currentQuiz = [];
+            answers = [];
+
+            document.getElementById('quizSelect').style.display = 'none';
+            document.getElementById('quizPlay').style.display = 'block';
+            document.getElementById('quizResult').style.display = 'none';
+            document.getElementById('quizPlayTitle').textContent = title;
+            document.getElementById('btnBackToStudy').href = `estudio.html?id=${videoId}`;
+
+            const cached = getCachedQuiz(videoId);
+            if (cached) {
+                currentQuiz = cached;
+                renderQuizQuestions();
+                return;
+            }
+
+            document.getElementById('quizContainer').innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>Generando preguntas con IA...</p><p class="loading-sub">Esto puede tardar 30-60 segundos</p></div>';
+
+            try {
+                const text = await getYouTubeTranscript(videoId);
+                const transcript = text ? filterTranscript(text, 20) : '';
+                const response = await generateQuiz(transcript, title);
+                currentQuiz = parseQuiz(response);
+
+                if (currentQuiz.length === 0) {
+                    document.getElementById('quizContainer').innerHTML = '<div class="empty-state"><h3>Error</h3><p>No se pudieron generar preguntas. Intenta con otra predicacion.</p></div>';
+                    return;
+                }
+
+                setCachedQuiz(videoId, currentQuiz);
+                renderQuizQuestions();
+            } catch (err) {
+                console.error(err);
+                document.getElementById('quizContainer').innerHTML = '<div class="empty-state"><h3>Error</h3><p>No se pudo generar el test. Verifica tu conexion.</p></div>';
+            }
+        }
+
+        function renderQuizQuestions() {
+            const container = document.getElementById('quizContainer');
+            answers = new Array(currentQuiz.length).fill(-1);
+
+            const progress = document.getElementById('quizProgress');
+            progress.innerHTML = currentQuiz.map((_, i) => `<div class="quiz-dot" data-idx="${i}"></div>`).join('');
+
+            container.innerHTML = currentQuiz.map((q, qi) => `
+                <div class="quiz-question" data-idx="${qi}">
+                    <h3>${qi + 1}. ${q.question}</h3>
+                    <div class="quiz-options">
+                        ${q.options.map((opt, oi) => `
+                            <button class="quiz-option" data-qi="${qi}" data-oi="${oi}">
+                                <span class="quiz-option-letter">${String.fromCharCode(65 + oi)}</span>
+                                <span>${opt}</span>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+
+            container.querySelectorAll('.quiz-option').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const qi = parseInt(btn.dataset.qi);
+                    const oi = parseInt(btn.dataset.oi);
+                    answers[qi] = oi;
+
+                    container.querySelectorAll(`.quiz-option[data-qi="${qi}"]`).forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+
+                    const dot = progress.children[qi];
+                    dot.classList.add('answered');
+
+                    if (answers.every(a => a >= 0)) {
+                        document.getElementById('btnSubmitQuiz').style.display = 'inline-flex';
+                    }
+                });
+            });
+        }
+
+        document.getElementById('btnSubmitQuiz').addEventListener('click', () => {
+            let correct = 0;
+            currentQuiz.forEach((q, i) => {
+                const isCorrect = answers[i] === q.correctIndex;
+                if (isCorrect) correct++;
+
+                const questionEl = document.querySelector(`.quiz-question[data-idx="${i}"]`);
+                questionEl.querySelectorAll('.quiz-option').forEach((btn, oi) => {
+                    btn.disabled = true;
+                    if (oi === q.correctIndex) btn.classList.add('correct');
+                    if (oi === answers[i] && !isCorrect) btn.classList.add('incorrect');
+                });
+
+                const dot = document.getElementById('quizProgress').children[i];
+                dot.classList.remove('answered');
+                dot.classList.add(isCorrect ? 'correct' : 'incorrect');
+            });
+
+            const result = {
+                videoId: currentVideoId,
+                title: currentVideoTitle,
+                score: correct,
+                total: currentQuiz.length,
+                date: new Date().toISOString()
+            };
+            saveQuizResult(result);
+
+            document.getElementById('quizPlay').style.display = 'none';
+            document.getElementById('quizResult').style.display = 'block';
+            document.getElementById('quizResultContent').innerHTML = `
+                <h2 style="font-family:'Playfair Display',serif; font-size:22px; margin-bottom:16px;">${currentVideoTitle}</h2>
+                <div class="quiz-score">${correct}/${currentQuiz.length}</div>
+                <p class="quiz-score-label">${correct === currentQuiz.length ? 'Excelente! Perfecto!' : correct >= currentQuiz.length * 0.7 ? 'Muy bien!' : 'Sigue estudiando!'}</p>
+                <p style="color:var(--text-muted); margin-top:16px;">${Math.round(correct / currentQuiz.length * 100)}% de aciertos</p>
+            `;
+        });
+
+        document.getElementById('btnBackToList').addEventListener('click', () => {
+            document.getElementById('quizSelect').style.display = 'block';
+            document.getElementById('quizPlay').style.display = 'none';
+            document.getElementById('quizResult').style.display = 'none';
+            document.getElementById('btnSubmitQuiz').style.display = 'none';
+            renderQuizHistory();
+        });
+    </script>
+</body>
+</html>

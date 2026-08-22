@@ -1,0 +1,210 @@
+:root {
+    --bg-primary: #0a0a0f;
+    --bg-secondary: #12121a;
+    --bg-card: #1a1a2e;
+    --purple: #8B5CF6;
+    --purple-light: #A78BFA;
+    --purple-dark: #7C3AED;
+    --gold: #D4A843;
+    --text: #E8E8F0;
+    --text-muted: #8888A0;
+    --border: #2a2a3e;
+    --success: #22c55e;
+    --error: #ef4444;
+    --radius: 12px;
+    --radius-lg: 20px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+a { color: inherit; text-decoration: none; }
+img { max-width: 100%; display: block; }
+button { cursor: pointer; font-family: inherit; }
+
+.container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+/* NAVBAR */
+.navbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+    padding: 16px 0; transition: all 0.3s ease;
+    background: rgba(10, 10, 15, 0.8); backdrop-filter: blur(10px);
+    border-bottom: 1px solid transparent;
+}
+.navbar.scrolled { padding: 10px 0; border-bottom-color: var(--border); }
+.nav-container { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; }
+.nav-logo { display: flex; align-items: center; gap: 12px; }
+.nav-logo-img { height: 42px; width: auto; }
+.nav-links { display: flex; gap: 8px; list-style: none; }
+.nav-link { padding: 8px 16px; font-size: 13px; font-weight: 500; color: var(--text-muted); border-radius: 8px; transition: all 0.3s ease; }
+.nav-link:hover, .nav-link.active { color: var(--text); background: rgba(139, 92, 246, 0.15); }
+.nav-toggle { display: none; flex-direction: column; gap: 5px; background: none; border: none; padding: 4px; }
+.nav-toggle span { display: block; width: 24px; height: 2px; background: var(--text); border-radius: 2px; transition: all 0.3s ease; }
+.nav-toggle.active span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+.nav-toggle.active span:nth-child(2) { opacity: 0; }
+.nav-toggle.active span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
+
+/* HERO */
+.hero {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center;
+    position: relative; overflow: hidden;
+    background: radial-gradient(ellipse at 50% 30%, rgba(139, 92, 246, 0.15) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 70%, rgba(212, 168, 67, 0.08) 0%, transparent 50%);
+}
+.hero-content { position: relative; z-index: 2; padding: 24px; }
+.hero-subtitle { font-size: 14px; color: var(--purple-light); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 12px; }
+.hero-title { font-family: 'Playfair Display', serif; font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 700; margin-bottom: 16px; background: linear-gradient(135deg, var(--text), var(--purple-light)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.hero-desc { font-size: 18px; color: var(--text-muted); margin-bottom: 40px; max-width: 600px; margin-left: auto; margin-right: auto; }
+.hero-logo { width: 140px; margin: 0 auto 32px; filter: drop-shadow(0 4px 20px rgba(139, 92, 246, 0.3)); }
+.hero-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+
+/* BUTTONS */
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 28px; border-radius: 10px; font-size: 14px; font-weight: 600; border: none; transition: all 0.3s ease; }
+.btn-primary { background: linear-gradient(135deg, var(--purple), var(--purple-dark)); color: white; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3); }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 25px rgba(139, 92, 246, 0.4); }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-outline:hover { border-color: var(--purple); background: rgba(139, 92, 246, 0.1); }
+.btn-gold { background: linear-gradient(135deg, var(--gold), #B8941F); color: #0a0a0f; }
+.btn-sm { padding: 8px 16px; font-size: 12px; }
+.btn-icon { width: 40px; height: 40px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 10px; background: rgba(139, 92, 246, 0.15); color: var(--purple-light); border: 1px solid rgba(139, 92, 246, 0.3); }
+.btn-icon:hover { background: rgba(139, 92, 246, 0.25); }
+.btn-danger { background: rgba(239, 68, 68, 0.15); color: var(--error); border: 1px solid rgba(239, 68, 68, 0.3); }
+.btn-danger:hover { background: rgba(239, 68, 68, 0.25); }
+
+/* SECTIONS */
+.section { padding: 80px 0; }
+.section-dark { background: var(--bg-secondary); }
+.section-header { text-align: center; margin-bottom: 48px; }
+.section-tag { font-size: 11px; color: var(--purple-light); letter-spacing: 3px; text-transform: uppercase; display: block; margin-bottom: 8px; }
+.section-title { font-family: 'Playfair Display', serif; font-size: clamp(1.8rem, 4vw, 2.5rem); font-weight: 700; margin-bottom: 12px; }
+.section-line { width: 60px; height: 3px; background: linear-gradient(90deg, var(--purple), var(--gold)); margin: 0 auto; border-radius: 3px; }
+.section-desc { color: var(--text-muted); max-width: 600px; margin: 16px auto 0; font-size: 15px; }
+
+/* SERMONS GRID */
+.sermons-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; }
+
+/* SERMON CARDS */
+.sermon-card { background: var(--bg-card); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); transition: all 0.3s ease; cursor: pointer; }
+.sermon-card:hover { border-color: var(--purple); transform: translateY(-4px); box-shadow: 0 8px 30px rgba(139, 92, 246, 0.15); }
+.sermon-thumb { position: relative; aspect-ratio: 16/9; overflow: hidden; }
+.sermon-thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
+.sermon-card:hover .sermon-thumb img { transform: scale(1.05); }
+.sermon-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60px; height: 60px; background: rgba(139, 92, 246, 0.85); border-radius: 50%; display: flex; align-items: center; justify-content: center; opacity: 0; transition: all 0.3s ease; color: white; }
+.sermon-card:hover .sermon-play { opacity: 1; }
+.sermon-badge { position: absolute; top: 12px; left: 12px; background: var(--purple); color: white; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.sermon-info { padding: 16px 20px 20px; }
+.sermon-info h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; line-height: 1.4; }
+.sermon-info p { font-size: 12px; color: var(--text-muted); }
+
+/* STUDIO PAGE */
+.studio-layout { padding-top: 80px; min-height: 100vh; }
+.studio-video { width: 100%; max-width: 900px; margin: 24px auto 0; aspect-ratio: 16/9; border-radius: var(--radius-lg); overflow: hidden; background: #000; }
+.studio-video iframe { width: 100%; height: 100%; border: none; }
+.studio-title { text-align: center; padding: 24px; }
+.studio-title h1 { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+.studio-title p { color: var(--text-muted); font-size: 13px; }
+.studio-tabs { display: flex; justify-content: center; gap: 4px; padding: 0 24px; margin-bottom: 24px; flex-wrap: wrap; }
+.studio-tab { padding: 10px 20px; font-size: 13px; font-weight: 600; color: var(--text-muted); background: none; border: 1px solid var(--border); border-radius: 10px; transition: all 0.3s ease; }
+.studio-tab:hover { color: var(--text); border-color: var(--purple); }
+.studio-tab.active { background: var(--purple); color: white; border-color: var(--purple); }
+.studio-panel { display: none; max-width: 900px; margin: 0 auto; padding: 0 24px 48px; }
+.studio-panel.active { display: block; }
+
+/* TRANSCRIPT */
+.transcript-content { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; font-size: 14px; line-height: 1.8; white-space: pre-wrap; max-height: 500px; overflow-y: auto; }
+.transcript-content::-webkit-scrollbar { width: 6px; }
+.transcript-content::-webkit-scrollbar-track { background: transparent; }
+.transcript-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.transcript-toolbar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+.transcript-toolbar label { font-size: 13px; color: var(--text-muted); }
+.transcript-toolbar input[type="range"] { width: 120px; accent-color: var(--purple); }
+.transcript-toolbar span { font-size: 13px; color: var(--purple-light); min-width: 40px; }
+
+/* BIBLE STUDY */
+.bible-section { margin-bottom: 20px; padding: 20px; background: rgba(255, 255, 255, 0.03); border-radius: var(--radius); border-left: 3px solid var(--purple); }
+.bible-section h3 { font-size: 16px; margin-bottom: 12px; color: var(--gold); }
+.bible-section-content { color: var(--text); font-size: 14px; line-height: 1.7; }
+.bible-section-content p { margin-bottom: 12px; }
+.bible-section-content strong { color: var(--purple-light); }
+.bible-verse-card { background: rgba(139, 92, 246, 0.1); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+.bible-verse-ref { font-weight: 700; color: var(--gold); font-size: 14px; }
+.bible-verse-text { margin: 6px 0; font-style: italic; font-size: 14px; }
+.bible-verse-explain { font-size: 13px; color: var(--text-muted); }
+.btn-copy-study { display: inline-flex; align-items: center; gap: 6px; background: rgba(139, 92, 246, 0.2); color: var(--purple-light); border: 1px solid rgba(139, 92, 246, 0.4); padding: 8px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; margin-bottom: 16px; transition: all 0.3s ease; }
+.btn-copy-study:hover { background: rgba(139, 92, 246, 0.35); }
+.btn-copy-study.copied { background: rgba(34, 197, 94, 0.2); border-color: rgba(34, 197, 94, 0.4); color: #22c55e; }
+
+/* LOADING */
+.loading { text-align: center; padding: 40px; }
+.loading-spinner { width: 48px; height: 48px; border: 3px solid rgba(139, 92, 246, 0.2); border-top-color: var(--purple); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading p { color: var(--text-muted); font-size: 14px; }
+.loading-sub { font-size: 12px; margin-top: 4px; }
+
+/* QUIZ */
+.quiz-container { max-width: 700px; margin: 0 auto; }
+.quiz-question { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; }
+.quiz-question h3 { font-size: 15px; font-weight: 600; margin-bottom: 16px; line-height: 1.5; }
+.quiz-options { display: flex; flex-direction: column; gap: 8px; }
+.quiz-option { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; cursor: pointer; transition: all 0.2s ease; background: transparent; color: var(--text); text-align: left; width: 100%; }
+.quiz-option:hover { border-color: var(--purple); background: rgba(139, 92, 246, 0.08); }
+.quiz-option.selected { border-color: var(--purple); background: rgba(139, 92, 246, 0.15); }
+.quiz-option.correct { border-color: var(--success); background: rgba(34, 197, 94, 0.15); color: var(--success); }
+.quiz-option.incorrect { border-color: var(--error); background: rgba(239, 68, 68, 0.15); color: var(--error); }
+.quiz-option-letter { width: 28px; height: 28px; border-radius: 50%; background: rgba(139, 92, 246, 0.2); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; }
+.quiz-result { text-align: center; padding: 32px; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border); }
+.quiz-score { font-size: 48px; font-weight: 700; color: var(--purple-light); }
+.quiz-score-label { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
+.quiz-progress { display: flex; gap: 6px; margin-bottom: 24px; justify-content: center; flex-wrap: wrap; }
+.quiz-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); transition: all 0.2s; }
+.quiz-dot.answered { background: var(--purple); }
+.quiz-dot.correct { background: var(--success); }
+.quiz-dot.incorrect { background: var(--error); }
+
+/* NOTES */
+.note-editor { width: 100%; min-height: 200px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; color: var(--text); font-family: inherit; font-size: 14px; line-height: 1.7; resize: vertical; }
+.note-editor:focus { outline: none; border-color: var(--purple); }
+.notes-list { display: flex; flex-direction: column; gap: 12px; }
+.note-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px; transition: border-color 0.2s; }
+.note-item:hover { border-color: var(--purple); }
+.note-info h4 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.note-info p { font-size: 12px; color: var(--text-muted); }
+.note-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+/* TOAST */
+.toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--purple); color: white; padding: 12px 24px; border-radius: 10px; font-size: 13px; font-weight: 600; z-index: 9999; transition: transform 0.3s ease; pointer-events: none; }
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* SEARCH */
+.search-bar { max-width: 500px; margin: 0 auto 32px; position: relative; }
+.search-bar input { width: 100%; padding: 12px 20px 12px 44px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 14px; font-family: inherit; }
+.search-bar input:focus { outline: none; border-color: var(--purple); }
+.search-bar input::placeholder { color: var(--text-muted); }
+.search-bar svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+
+/* EMPTY STATE */
+.empty-state { text-align: center; padding: 60px 24px; color: var(--text-muted); }
+.empty-state h3 { font-size: 18px; margin-bottom: 8px; color: var(--text); }
+.empty-state p { font-size: 14px; margin-bottom: 24px; }
+
+/* FOOTER */
+.footer { padding: 24px 0; text-align: center; color: var(--text-muted); font-size: 13px; border-top: 1px solid var(--border); }
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+    .nav-links { display: none; position: fixed; top: 60px; left: 0; right: 0; background: var(--bg-secondary); flex-direction: column; padding: 16px; border-bottom: 1px solid var(--border); }
+    .nav-links.open { display: flex; }
+    .nav-toggle { display: flex; }
+    .sermons-grid { grid-template-columns: 1fr; }
+    .hero-title { font-size: 2.2rem; }
+    .hero-desc { font-size: 15px; }
+    .section { padding: 48px 0; }
+    .studio-title h1 { font-size: 18px; }
+}

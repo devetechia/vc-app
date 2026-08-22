@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academia Bíblica - Iglesia Vida Cristiana</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-logo">
+                <img src="logos/logo vc.png" alt="Vida Cristiana" class="nav-logo-img">
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="index.html" class="nav-link active">Inicio</a></li>
+                <li><a href="predicaciones.html" class="nav-link">Predicaciones</a></li>
+                <li><a href="tests.html" class="nav-link">Tests</a></li>
+                <li><a href="notas.html" class="nav-link">Mis Apuntes</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-content">
+            <img src="logos/logo vc.png" alt="Academia Biblica" class="hero-logo">
+            <p class="hero-subtitle">Bienvenidos a</p>
+            <h1 class="hero-title">Academia Biblica</h1>
+            <p class="hero-desc">Estudia la Palabra de Dios a traves de las predicaciones. Transcripciones, analisis con IA, tests y apuntes personales.</p>
+            <div class="hero-buttons">
+                <a href="predicaciones.html" class="btn btn-primary">Empezar a estudiar</a>
+                <a href="tests.html" class="btn btn-outline">Hacer un test</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Como funciona</span>
+                <h2 class="section-title">Tu estudio personal</h2>
+                <div class="section-line"></div>
+            </div>
+            <div class="sermons-grid" id="features">
+                <div class="sermon-card" style="cursor:default;">
+                    <div class="sermon-info" style="padding:32px 24px; text-align:center;">
+                        <div style="font-size:36px; margin-bottom:16px;">🎬</div>
+                        <h3>Visualiza</h3>
+                        <p style="margin-top:8px;">Mira las ultimas predicaciones del canal de YouTube de Vida Cristiana directamente en la plataforma.</p>
+                    </div>
+                </div>
+                <div class="sermon-card" style="cursor:default;">
+                    <div class="sermon-info" style="padding:32px 24px; text-align:center;">
+                        <div style="font-size:36px; margin-bottom:16px;">📜</div>
+                        <h3>Transcribe</h3>
+                        <p style="margin-top:8px;">Obten la transcripcion completa de cada predicacion. Descargala en PDF para estudiar offline.</p>
+                    </div>
+                </div>
+                <div class="sermon-card" style="cursor:default;">
+                    <div class="sermon-info" style="padding:32px 24px; text-align:center;">
+                        <div style="font-size:36px; margin-bottom:16px;">🧠</div>
+                        <h3>Analiza con IA</h3>
+                        <p style="margin-top:8px;">Nuestra IA extrae versiculos, contexto historico, mensaje principal y temas para profundizar.</p>
+                    </div>
+                </div>
+                <div class="sermon-card" style="cursor:default;">
+                    <div class="sermon-info" style="padding:32px 24px; text-align:center;">
+                        <div style="font-size:36px; margin-bottom:16px;">✍️</div>
+                        <h3>Toma apuntes</h3>
+                        <p style="margin-top:8px;">Guarda tus notas personales por cada predicacion. Todo se queda en tu navegador.</p>
+                    </div>
+                </div>
+                <div class="sermon-card" style="cursor:default;">
+                    <div class="sermon-info" style="padding:32px 24px; text-align:center;">
+                        <div style="font-size:36px; margin-bottom:16px;">📝</div>
+                        <h3>Tests y examenes</h3>
+                        <p style="margin-top:8px;">Pon a prueba tu conocimiento con quizzes generados por IA basados en cada predicacion.</p>
+                    </div>
+                </div>
+                <div class="sermon-card" style="cursor:default;">
+                    <div class="sermon-info" style="padding:32px 24px; text-align:center;">
+                        <div style="font-size:36px; margin-bottom:16px;">💾</div>
+                        <h3>Todo guardado</h3>
+                        <p style="margin-top:8px;">Notas, test results y estudios se guardan en tu navegador. Sin cuentas ni registros.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section section-dark" id="ultimas">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Ultimas</span>
+                <h2 class="section-title">Predicaciones recientes</h2>
+                <div class="section-line"></div>
+            </div>
+            <div class="sermons-grid" id="homeSermons">
+                <div class="loading"><div class="loading-spinner"></div><p>Cargando predicaciones...</p></div>
+            </div>
+            <div style="text-align:center; margin-top:32px;">
+                <a href="predicaciones.html" class="btn btn-outline">Ver todas las predicaciones</a>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <p>Academia Biblica - Iglesia Vida Cristiana 2026</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    <script>
+        document.getElementById('navToggle').addEventListener('click', () => {
+            document.getElementById('navToggle').classList.toggle('active');
+            document.getElementById('navLinks').classList.toggle('open');
+        });
+
+        window.addEventListener('scroll', () => {
+            document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 50);
+        });
+
+        fetchYouTubeVideos(4).then(videos => {
+            const grid = document.getElementById('homeSermons');
+            grid.innerHTML = videos.map((v, i) => `
+                <a href="estudio.html?id=${v.id}" class="sermon-card">
+                    <div class="sermon-thumb">
+                        <img src="${v.thumbnail}" alt="${v.title}" loading="lazy">
+                        <div class="sermon-play">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                        ${i === 0 ? '<span class="sermon-badge">Reciente</span>' : ''}
+                    </div>
+                    <div class="sermon-info">
+                        <h3>${v.title}</h3>
+                        <p>${v.date}</p>
+                    </div>
+                </a>
+            `).join('');
+        }).catch(err => {
+            document.getElementById('homeSermons').innerHTML = '<div class="empty-state"><h3>Error al cargar</h3><p>No se pudieron cargar las predicaciones.</p></div>';
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Predicaciones - Academia Biblica</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar scrolled" id="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-logo">
+                <img src="logos/logo vc.png" alt="Vida Cristiana" class="nav-logo-img">
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="index.html" class="nav-link">Inicio</a></li>
+                <li><a href="predicaciones.html" class="nav-link active">Predicaciones</a></li>
+                <li><a href="tests.html" class="nav-link">Tests</a></li>
+                <li><a href="notas.html" class="nav-link">Mis Apuntes</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="studio-layout">
+        <div class="container">
+            <div class="section-header" style="padding-top:24px;">
+                <span class="section-tag">Palabra</span>
+                <h2 class="section-title">Todas las Predicaciones</h2>
+                <div class="section-line"></div>
+                <p class="section-desc">Selecciona una predicacion para estudiarla, ver la transcripcion o hacer un test.</p>
+            </div>
+
+            <div class="search-bar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                <input type="text" id="searchInput" placeholder="Buscar predicacion...">
+            </div>
+
+            <div class="sermons-grid" id="sermonsGrid">
+                <div class="loading"><div class="loading-spinner"></div><p>Cargando predicaciones...</p></div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>Academia Biblica - Iglesia Vida Cristiana 2026</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    <script>
+        document.getElementById('navToggle').addEventListener('click', () => {
+            document.getElementById('navToggle').classList.toggle('active');
+            document.getElementById('navLinks').classList.toggle('open');
+        });
+
+        let allVideos = [];
+
+        fetchYouTubeVideos(50).then(videos => {
+            allVideos = videos;
+            renderSermons(videos);
+        }).catch(() => {
+            document.getElementById('sermonsGrid').innerHTML = '<div class="empty-state"><h3>Error al cargar</h3><p>No se pudieron cargar las predicaciones.</p></div>';
+        });
+
+        function renderSermons(videos) {
+            const grid = document.getElementById('sermonsGrid');
+            if (!videos.length) {
+                grid.innerHTML = '<div class="empty-state"><h3>Sin resultados</h3><p>No se encontraron predicaciones.</p></div>';
+                return;
+            }
+            grid.innerHTML = videos.map((v, i) => `
+                <a href="estudio.html?id=${v.id}" class="sermon-card">
+                    <div class="sermon-thumb">
+                        <img src="${v.thumbnail}" alt="${v.title}" loading="lazy">
+                        <div class="sermon-play">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                        ${i === 0 ? '<span class="sermon-badge">Reciente</span>' : ''}
+                    </div>
+                    <div class="sermon-info">
+                        <h3>${v.title}</h3>
+                        <p>${v.date}</p>
+                    </div>
+                </a>
+            `).join('');
+        }
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const q = e.target.value.toLowerCase();
+            const filtered = allVideos.filter(v => v.title.toLowerCase().includes(q));
+            renderSermons(filtered);
+        });
+    </script>
+</body>
+</html>
