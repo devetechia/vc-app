@@ -35,6 +35,17 @@ YT_CHANNEL_ID = os.getenv("YT_CHANNEL_ID", "UCRpj-vU_Nu6UaxJJvGI7jAA")
 OPENROUTER_KEY = os.getenv("OPENROUTER_KEY", "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")
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "poolside/laguna-s-2.1:free")
 GROK_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+PROXY_URL = os.getenv("PROXY_URL", "")  # ej: http://user:pass@proxy.webshare.io:80
+
+def get_proxy_config():
+    if not PROXY_URL:
+        return None
+    try:
+        from youtube_transcript_api.proxies import GenericProxyConfig
+        return GenericProxyConfig(http_url=PROXY_URL, https_url=PROXY_URL)
+    except Exception as e:
+        print(f"Proxy config error: {e}")
+        return None
 
 # ===== WHISPER SETUP (lazy) =====
 _whisper_model = None
@@ -86,6 +97,9 @@ def transcribe_with_whisper(video_id):
     if cookies_file:
         ydl_opts["cookiefile"] = cookies_file
         print(f"Usando cookies: {cookies_file}")
+    if PROXY_URL:
+        ydl_opts["proxy"] = PROXY_URL
+        print(f"Usando proxy para yt-dlp: {PROXY_URL[:30]}...")
 
     url = f"https://www.youtube.com/watch?v={video_id}"
     try:
@@ -179,11 +193,13 @@ def get_transcript():
         return jsonify({"error": "videoId required"}), 400
 
     last_error = None
-    # Intento 1: youtube_transcript_api
+    # Intento 1: youtube_transcript_api (con proxy si hay PROXY_URL)
     for attempt in range(2):
         try:
             from youtube_transcript_api import YouTubeTranscriptApi
-            ytt_api = YouTubeTranscriptApi()
+            proxy_config = get_proxy_config()
+            ytt_api = YouTubeTranscriptApi(proxy_config=proxy_config) if proxy_config else YouTubeTranscriptApi()
+            if proxy_config: print(f"Usando proxy para transcript: {PROXY_URL[:20]}...")
             transcript = ytt_api.fetch(video_id, languages=["es", "en"])
             text = " ".join([entry.text for entry in transcript.snippets])
             if text:
@@ -209,7 +225,8 @@ def _get_transcript_text(video_id):
         return None
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
-        ytt_api = YouTubeTranscriptApi()
+        proxy_config = get_proxy_config()
+        ytt_api = YouTubeTranscriptApi(proxy_config=proxy_config) if proxy_config else YouTubeTranscriptApi()
         transcript = ytt_api.fetch(video_id, languages=["es", "en"])
         text = " ".join([entry.text for entry in transcript.snippets])
         if text:
@@ -325,7 +342,7 @@ Responde SOLO con las preguntas en el formato indicado, sin explicaciones adicio
 
 @app.route("/api/health")
 def health():
-    return jsonify({"ok": True, "whisper": _whisper_model is not None, "cookies": find_cookies_file() is not None})
+    return jsonify({"ok": True, "whisper": _whisper_model is not None, "cookies": find_cookies_file() is not None, "proxy": bool(PROXY_URL)})
 
 
 if __name__ == "__main__":
