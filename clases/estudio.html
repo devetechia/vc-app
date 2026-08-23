@@ -14,7 +14,7 @@
             <a href="index.html" class="nav-logo">
                 <img src="logos/logo vc.png" alt="Vida Cristiana" class="nav-logo-img">
             </a>
-            <button class="nav-toggle" id="navToggle" aria-label="Menu">
+            <button class="nav-toggle" id="navToggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="navLinks">
                 <span></span><span></span><span></span>
             </button>
             <ul class="nav-links" id="navLinks">
@@ -47,14 +47,38 @@
         <!-- TRANSCRIPT PANEL -->
         <div class="studio-panel active" id="panel-transcript">
             <div class="transcript-toolbar">
-                <label>Saltar intro (canciones):</label>
-                <input type="range" id="skipSlider" min="0" max="40" value="20" step="1">
+                <label for="skipSlider" title="Descarta los primeros minutos (alabanza) para quedarte solo con la predicacion">Saltar intro (canciones):</label>
+                <input type="range" id="skipSlider" min="0" max="40" value="20" step="1" aria-label="Minutos a saltar de la intro">
                 <span id="skipValue">20 min</span>
-                <button class="btn btn-sm btn-primary" id="btnLoadTranscript">Cargar transcripcion</button>
-                <button class="btn btn-sm btn-outline" id="btnDownloadPdf" style="display:none;">PDF</button>
+                <button class="btn btn-sm btn-primary" id="btnLoadTranscript" aria-label="Cargar transcripcion">Cargar transcripcion</button>
+                <button class="btn btn-sm btn-outline" id="btnDownloadPdf" style="display:none;" aria-label="Descargar transcripcion en PDF">PDF</button>
             </div>
             <div class="transcript-content" id="transcriptContent">
                 <p style="color:var(--text-muted); text-align:center; padding:40px 0;">Ajusta los minutos de salto y haz click en "Cargar transcripcion".</p>
+            </div>
+            <div class="transcript-manual" id="transcriptManual" style="display:none; margin-top:16px;">
+                <div style="background:rgba(255,215,0,0.08); border:1px solid rgba(255,215,0,0.2); border-radius:8px; padding:16px; margin-bottom:12px;">
+                    <p style="color:var(--gold); font-weight:600; margin-bottom:8px;">Carga la transcripcion manualmente</p>
+                    <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:8px;">Opcion 1 — Copiar desde YouTube:</p>
+                    <ol style="color:var(--text-muted); font-size:0.85rem; padding-left:20px; margin:0 0 12px 0;">
+                        <li>Abre el video en YouTube</li>
+                        <li>Haz click en "…" debajo del video</li>
+                        <li>Selecciona "Mostrar transcripcion"</li>
+                        <li>Copia todo el texto y pegalo aqui abajo</li>
+                    </ol>
+                    <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:8px;">Opcion 2 — Arrastra un archivo o seleccionalo:</p>
+                    <div id="dropZone" class="drop-zone">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <span>Arrastra .txt/.srt/.vtt aqui o <label for="transcriptFile" class="drop-zone-link">elige archivo</label></span>
+                        <input type="file" id="transcriptFile" accept=".txt,.srt,.vtt" hidden>
+                        <span id="fileName" style="font-size:12px; color:var(--gold); margin-top:4px; display:none;"></span>
+                    </div>
+                </div>
+                <textarea class="note-editor" id="manualTranscript" placeholder="Pega la transcripcion aqui..." style="min-height:150px;" aria-label="Transcripcion manual"></textarea>
+                <div style="margin-top:8px; display:flex; gap:8px;">
+                    <button class="btn btn-sm btn-gold" id="btnUseManual">Usar esta transcripcion</button>
+                    <button class="btn btn-sm btn-outline" id="btnClearManual">Limpiar</button>
+                </div>
             </div>
         </div>
 
@@ -67,7 +91,10 @@
                 <div class="loading"><div class="loading-spinner"></div><p>Analizando con IA...</p><p class="loading-sub">Esto puede tardar 30-60 segundos</p></div>
             </div>
             <div id="studyResults" style="display:none;">
-                <button class="btn-copy-study" id="btnCopyStudy">Copiar todo</button>
+                <div style="display:flex; gap:8px; margin-bottom:16px;">
+                    <button class="btn-copy-study" id="btnCopyStudy">Copiar todo</button>
+                    <button class="btn btn-sm btn-outline" id="btnStudyPdf" style="font-size:13px;">Descargar PDF</button>
+                </div>
                 <div class="bible-section" id="bibleSummary"><h3>Resumen</h3><div class="bible-section-content"></div></div>
                 <div class="bible-section" id="bibleMessage"><h3>Mensaje Principal</h3><div class="bible-section-content"></div></div>
                 <div class="bible-section" id="bibleVerses"><h3>Versiculos Mencionados</h3><div class="bible-verses-list"></div></div>
@@ -97,16 +124,22 @@
 
     <script src="script.js"></script>
     <script>
-        document.getElementById('navToggle').addEventListener('click', () => {
-            document.getElementById('navToggle').classList.toggle('active');
-            document.getElementById('navLinks').classList.toggle('open');
-        });
-
+        initNavbar();
         const videoId = getUrlParam('id');
         if (!videoId) { window.location.href = 'predicaciones.html'; }
 
         let rawEntries = null;
         let currentSkip = 20;
+        let isManualTranscript = false;
+
+        // Restore cached transcript immediately
+        const cachedEarly = getCachedTranscript(videoId);
+        if (cachedEarly && cachedEarly.length) {
+            rawEntries = cachedEarly;
+            isManualTranscript = false;
+            document.getElementById('transcriptContent').innerHTML = '';
+            setTimeout(() => { renderTranscript(); document.getElementById('btnDownloadPdf').style.display = 'inline-flex'; }, 100);
+        }
 
         // Load video
         fetchYouTubeVideos(50).then(videos => {
@@ -116,7 +149,7 @@
             document.getElementById('videoDate').textContent = video.date;
             document.title = video.title + ' - Academia Biblica';
             const origin = window.location.origin;
-            document.getElementById('videoContainer').innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}?origin=${encodeURIComponent(origin)}&rel=0" allow="picture-in-picture" allowfullscreen></iframe>`;
+            document.getElementById('videoContainer').innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}?origin=${encodeURIComponent(origin)}&rel=0" title="${escapeHtml(video.title)}" loading="lazy" allow="picture-in-picture" allowfullscreen></iframe>`;
             document.getElementById('btnGoTest').href = `tests.html?id=${videoId}`;
         });
 
@@ -124,23 +157,96 @@
         document.getElementById('btnLoadTranscript').addEventListener('click', async () => {
             const btn = document.getElementById('btnLoadTranscript');
             const content = document.getElementById('transcriptContent');
+            const manualDiv = document.getElementById('transcriptManual');
             btn.disabled = true;
             btn.textContent = 'Cargando...';
-            content.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>Obteniendo transcripcion...</p></div>';
+            content.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>Obteniendo transcripcion...</p><p class="loading-sub">Probando YouTube captions...</p></div>';
+            manualDiv.style.display = 'none';
+            let whisperTimer = setTimeout(() => {
+                const sub = content.querySelector('.loading-sub');
+                if (sub) sub.textContent = 'YouTube bloqueo — probando Whisper local (2-3 min)...';
+            }, 4000);
 
             try {
                 rawEntries = await getYouTubeTranscript(videoId);
+                clearTimeout(whisperTimer);
                 if (!rawEntries || rawEntries.length === 0) {
-                    content.innerHTML = '<p style="color:var(--text-muted); text-align:center;">No se pudo obtener la transcripcion de este video.</p>';
+                    content.innerHTML = '<p style="color:var(--text-muted); text-align:center;">No se pudo obtener la transcripcion automaticamente.</p><p style="color:var(--text-muted); font-size:13px; text-align:center; margin-top:8px;">Prueba pegando manualmente o añade <code>cookies.txt</code> para Whisper.</p>';
+                    manualDiv.style.display = 'block';
                 } else {
+                    isManualTranscript = false;
+                    updateSliderState();
                     renderTranscript();
                     document.getElementById('btnDownloadPdf').style.display = 'inline-flex';
                 }
             } catch (err) {
-                content.innerHTML = '<p style="color:var(--text-muted); text-align:center;">Error al obtener la transcripcion. Intenta de nuevo.</p>';
+                clearTimeout(whisperTimer);
+                content.innerHTML = '<p style="color:var(--text-muted); text-align:center;">Error al obtener la transcripcion.</p>';
+                manualDiv.style.display = 'block';
             }
             btn.disabled = false;
             btn.textContent = 'Cargar transcripcion';
+        });
+
+        function updateSliderState() {
+            const slider = document.getElementById('skipSlider');
+            const label = document.querySelector('.transcript-toolbar label');
+            if (isManualTranscript) {
+                slider.disabled = true;
+                slider.style.opacity = '0.4';
+                if (label) label.title = 'No aplica a transcripcion manual (timestamps simulados)';
+            } else {
+                slider.disabled = false;
+                slider.style.opacity = '1';
+                if (label) label.title = 'Descarta los primeros minutos (alabanza)';
+            }
+        }
+
+        // Manual transcript paste
+        document.getElementById('btnUseManual').addEventListener('click', () => {
+            const text = document.getElementById('manualTranscript').value.trim();
+            if (!text) { showToast('Pega la transcripcion primero'); return; }
+            rawEntries = parseManualTranscript(text);
+            isManualTranscript = true;
+            updateSliderState();
+            try { setCachedTranscript(videoId, rawEntries); } catch {}
+            renderTranscript();
+            document.getElementById('btnDownloadPdf').style.display = 'inline-flex';
+            document.getElementById('transcriptManual').style.display = 'none';
+            document.getElementById('transcriptContent').innerHTML = '';
+            // Re-render to show with disabled slider hint
+            setTimeout(renderTranscript, 50);
+            showToast('Transcripcion guardada');
+        });
+
+        // File upload + drag&drop
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('transcriptFile');
+        const fileNameEl = document.getElementById('fileName');
+        function handleFile(file) {
+            if (!file) return;
+            fileNameEl.textContent = file.name;
+            fileNameEl.style.display = 'block';
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                document.getElementById('manualTranscript').value = ev.target.result;
+                showToast('Archivo cargado — haz click en "Usar esta transcripcion"');
+            };
+            reader.readAsText(file);
+        }
+        fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+        if (dropZone) {
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+            dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('drag-over'); handleFile(e.dataTransfer.files[0]); });
+        }
+
+        // Clear manual transcript
+        document.getElementById('btnClearManual').addEventListener('click', () => {
+            document.getElementById('manualTranscript').value = '';
+            fileInput.value = '';
+            fileNameEl.style.display = 'none';
+            fileNameEl.textContent = '';
         });
 
         function renderTranscript() {
@@ -155,11 +261,12 @@
             if (rawEntries) renderTranscript();
         });
 
-        document.getElementById('btnDownloadPdf').addEventListener('click', () => {
+        document.getElementById('btnDownloadPdf').addEventListener('click', async () => {
             if (!rawEntries) { showToast('Primero carga la transcripcion'); return; }
             const title = document.getElementById('videoTitle').textContent;
             const text = formatTranscript(rawEntries, currentSkip);
-            exportTranscriptPDF(title, text);
+            try { await exportTranscriptPDF(title, text); }
+            catch (e) { console.error(e); showToast('Error al generar PDF'); }
         });
 
         // Tabs
@@ -190,14 +297,28 @@
             error.style.display = 'none';
 
             try {
-                if (!rawEntries) {
+                // Si no hay transcripcion cargada, intentar obtenerla por detras (como la web original)
+                if (!rawEntries || rawEntries.length === 0) {
                     loading.querySelector('p').textContent = 'Obteniendo transcripcion...';
-                    rawEntries = await getYouTubeTranscript(videoId);
+                    loading.querySelector('.loading-sub').textContent = 'Si YouTube bloquea, Whisper local tardara 2-3 min';
+                    const fetched = await getYouTubeTranscript(videoId);
+                    if (fetched && fetched.length) {
+                        rawEntries = fetched;
+                        isManualTranscript = false;
+                        updateSliderState();
+                        document.getElementById('transcriptContent').innerHTML = '';
+                        renderTranscript();
+                        document.getElementById('btnDownloadPdf').style.display = 'inline-flex';
+                    }
                 }
-                const text = rawEntries ? filterTranscript(rawEntries, currentSkip) : '';
+                const text = rawEntries ? rawEntries.map(e => e.text).join(' ') : '';
+                if (!text) {
+                    showToast('Sin transcripcion — el server intentara Whisper por detras (2-3 min)');
+                }
                 const title = document.getElementById('videoTitle').textContent;
-                loading.querySelector('p').textContent = 'Analizando con IA...';
-                const response = await generateBiblicalStudy(text, title);
+                loading.querySelector('p').textContent = text ? 'Analizando con IA...' : 'Transcribiendo con Whisper + analizando...';
+                loading.querySelector('.loading-sub').textContent = text ? '' : 'Puede tardar 2-3 min la primera vez (modelo 145MB)';
+                const response = await generateBiblicalStudy(text, title, videoId);
                 setCachedStudy(videoId, response);
                 loading.style.display = 'none';
                 renderStudyResults('studyResults', response);
@@ -222,6 +343,13 @@
                 if (content) text += content.innerText + '\n\n';
             });
             navigator.clipboard.writeText(text.trim()).then(() => showToast('Copiado'));
+        });
+        document.getElementById('btnStudyPdf').addEventListener('click', async () => {
+            const cached = getCachedStudy(videoId);
+            if (!cached) { showToast('Genera primero el estudio'); return; }
+            const title = document.getElementById('videoTitle').textContent;
+            try { await exportStudyPDF(title, cached); }
+            catch (e) { console.error(e); showToast('Error al generar PDF'); }
         });
 
         // Notes

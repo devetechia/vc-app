@@ -1,6 +1,8 @@
 __pycache__/
 *.pyc
 .env
+cookies.txt
+www.youtube.com_cookies*.txt
 *.log
 .DS_Store
 Thumbs.db

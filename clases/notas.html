@@ -14,7 +14,7 @@
             <a href="index.html" class="nav-logo">
                 <img src="logos/logo vc.png" alt="Vida Cristiana" class="nav-logo-img">
             </a>
-            <button class="nav-toggle" id="navToggle" aria-label="Menu">
+            <button class="nav-toggle" id="navToggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="navLinks">
                 <span></span><span></span><span></span>
             </button>
             <ul class="nav-links" id="navLinks">
@@ -47,11 +47,7 @@
 
     <script src="script.js"></script>
     <script>
-        document.getElementById('navToggle').addEventListener('click', () => {
-            document.getElementById('navToggle').classList.toggle('active');
-            document.getElementById('navLinks').classList.toggle('open');
-        });
-
+        initNavbar();
         function renderNotes() {
             const notes = getNotes();
             const container = document.getElementById('notesList');
@@ -66,16 +62,19 @@
 
             container.innerHTML = allNotes.map(n => {
                 const date = new Date(n.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-                const preview = n.text.substring(0, 120) + (n.text.length > 120 ? '...' : '');
+                let preview = n.text.trim();
+                if (preview.length > 120) {
+                    preview = preview.slice(0, 120).split(' ').slice(0, -1).join(' ') + '...';
+                }
                 return `
                     <div class="note-item">
-                        <div class="note-info" style="flex:1; cursor:pointer;" onclick="window.location.href='estudio.html?id=${n.videoId}'">
-                            <h4>${preview}</h4>
-                            <p>${date}</p>
+                        <div class="note-info" style="flex:1; cursor:pointer;" onclick="window.location.href='estudio.html?id=${n.videoId}'" role="button" tabindex="0" aria-label="Abrir estudio">
+                            <h4>${escapeHtml(preview)}</h4>
+                            <p>${escapeHtml(date)}</p>
                         </div>
                         <div class="note-actions">
-                            <a href="estudio.html?id=${n.videoId}" class="btn btn-sm btn-outline">Editar</a>
-                            <button class="btn btn-sm btn-danger" onclick="deleteAndRefresh('${n.videoId}')">Eliminar</button>
+                            <a href="estudio.html?id=${n.videoId}" class="btn btn-sm btn-outline" aria-label="Editar apunte">Editar</a>
+                            <button class="btn btn-sm btn-danger" onclick="deleteAndRefresh('${n.videoId}')" aria-label="Eliminar apunte">Eliminar</button>
                         </div>
                     </div>
                 `;

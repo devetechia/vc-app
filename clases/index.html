@@ -14,7 +14,7 @@
             <a href="index.html" class="nav-logo">
                 <img src="logos/logo vc.png" alt="Vida Cristiana" class="nav-logo-img">
             </a>
-            <button class="nav-toggle" id="navToggle" aria-label="Menu">
+            <button class="nav-toggle" id="navToggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="navLinks">
                 <span></span><span></span><span></span>
             </button>
             <ul class="nav-links" id="navLinks">
@@ -49,42 +49,42 @@
             <div class="sermons-grid" id="features">
                 <div class="sermon-card" style="cursor:default;">
                     <div class="sermon-info" style="padding:32px 24px; text-align:center;">
-                        <div style="font-size:36px; margin-bottom:16px;">🎬</div>
+                        <div class="feature-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="20" rx="4"/><path d="M10 8l6 4-6 4z"/></svg></div>
                         <h3>Visualiza</h3>
                         <p style="margin-top:8px;">Mira las ultimas predicaciones del canal de YouTube de Vida Cristiana directamente en la plataforma.</p>
                     </div>
                 </div>
                 <div class="sermon-card" style="cursor:default;">
                     <div class="sermon-info" style="padding:32px 24px; text-align:center;">
-                        <div style="font-size:36px; margin-bottom:16px;">📜</div>
+                        <div class="feature-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
                         <h3>Transcribe</h3>
                         <p style="margin-top:8px;">Obten la transcripcion completa de cada predicacion. Descargala en PDF para estudiar offline.</p>
                     </div>
                 </div>
                 <div class="sermon-card" style="cursor:default;">
                     <div class="sermon-info" style="padding:32px 24px; text-align:center;">
-                        <div style="font-size:36px; margin-bottom:16px;">🧠</div>
+                        <div class="feature-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.5 2A5.5 5.5 0 0 0 4 7.5v1A5.5 5.5 0 0 0 9.5 14a5.5 5.5 0 0 0 5.5-5.5v-1A5.5 5.5 0 0 0 9.5 2z"/><path d="M14 8h4a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2"/><path d="M9 14v4"/><path d="M7 18h4"/></svg></div>
                         <h3>Analiza con IA</h3>
                         <p style="margin-top:8px;">Nuestra IA extrae versiculos, contexto historico, mensaje principal y temas para profundizar.</p>
                     </div>
                 </div>
                 <div class="sermon-card" style="cursor:default;">
                     <div class="sermon-info" style="padding:32px 24px; text-align:center;">
-                        <div style="font-size:36px; margin-bottom:16px;">✍️</div>
+                        <div class="feature-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></div>
                         <h3>Toma apuntes</h3>
                         <p style="margin-top:8px;">Guarda tus notas personales por cada predicacion. Todo se queda en tu navegador.</p>
                     </div>
                 </div>
                 <div class="sermon-card" style="cursor:default;">
                     <div class="sermon-info" style="padding:32px 24px; text-align:center;">
-                        <div style="font-size:36px; margin-bottom:16px;">📝</div>
+                        <div class="feature-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14h6"/><path d="M9 18h6"/></svg></div>
                         <h3>Tests y examenes</h3>
                         <p style="margin-top:8px;">Pon a prueba tu conocimiento con quizzes generados por IA basados en cada predicacion.</p>
                     </div>
                 </div>
                 <div class="sermon-card" style="cursor:default;">
                     <div class="sermon-info" style="padding:32px 24px; text-align:center;">
-                        <div style="font-size:36px; margin-bottom:16px;">💾</div>
+                        <div class="feature-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg></div>
                         <h3>Todo guardado</h3>
                         <p style="margin-top:8px;">Notas, test results y estudios se guardan en tu navegador. Sin cuentas ni registros.</p>
                     </div>
@@ -117,11 +117,7 @@
 
     <script src="script.js"></script>
     <script>
-        document.getElementById('navToggle').addEventListener('click', () => {
-            document.getElementById('navToggle').classList.toggle('active');
-            document.getElementById('navLinks').classList.toggle('open');
-        });
-
+        initNavbar();
         window.addEventListener('scroll', () => {
             document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 50);
         });
@@ -129,22 +125,25 @@
         fetchYouTubeVideos(4).then(videos => {
             const grid = document.getElementById('homeSermons');
             grid.innerHTML = videos.map((v, i) => `
-                <a href="estudio.html?id=${v.id}" class="sermon-card">
+                <a href="estudio.html?id=${v.id}" class="sermon-card" aria-label="Estudiar ${v.title.replace(/"/g, '&quot;')}">
                     <div class="sermon-thumb">
-                        <img src="${v.thumbnail}" alt="${v.title}" loading="lazy">
-                        <div class="sermon-play">
+                        <img src="${v.thumbnail}" alt="${v.title.replace(/"/g, '&quot;')}" loading="lazy" width="480" height="270">
+                        <div class="sermon-play" aria-hidden="true">
                             <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                         </div>
                         ${i === 0 ? '<span class="sermon-badge">Reciente</span>' : ''}
                     </div>
                     <div class="sermon-info">
-                        <h3>${v.title}</h3>
-                        <p>${v.date}</p>
+                        <h3>${escapeHtml(v.title)}</h3>
+                        <p>${escapeHtml(v.date)}</p>
                     </div>
                 </a>
             `).join('');
         }).catch(err => {
-            document.getElementById('homeSermons').innerHTML = '<div class="empty-state"><h3>Error al cargar</h3><p>No se pudieron cargar las predicaciones.</p></div>';
+            const isQuota = err && err.message === 'quotaExceeded';
+            document.getElementById('homeSermons').innerHTML = isQuota
+                ? '<div class="empty-state"><h3>Cuota alcanzada</h3><p>Limite diario de YouTube. Recarga mas tarde — se usa cache local.</p></div>'
+                : '<div class="empty-state"><h3>Error al cargar</h3><p>No se pudieron cargar las predicaciones. Verifica que el servidor este corriendo en localhost:5000.</p></div>';
         });
     </script>
 </body>

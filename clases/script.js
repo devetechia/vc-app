@@ -1,141 +1,147 @@
 // ===== CONFIG =====
-const YT_API_KEY = 'AIzaSyBcbSSyNgUn5yiVxQJ0-yTUj1eVEU1dCu8';
-const YT_CHANNEL_ID = 'UCRpj-vU_Nu6UaxJJvGI7jAA';
-const OPENROUTER_KEY = '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';
+// Cambia FLY_API_URL por tu URL real de Fly.io tras `fly deploy`
+const FLY_API_URL = 'https://academia-biblica-vc.fly.dev';
+const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? 'http://localhost:5000'
+    : FLY_API_URL;
 const TRANSCRIPT_SKIP_MINUTES = 20;
+const VIDEO_CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
+const VIDEO_CACHE_KEY = 'academia_videos_cache';
 
-// ===== YOUTUBE API =====
+// ===== YOUTUBE API (via server proxy, con cache) =====
 async function fetchYouTubeVideos(maxResults = 50) {
-    const url = `https://www.googleapis.com/youtube/v3/search?key=${YT_API_KEY}&channelId=${YT_CHANNEL_ID}&part=snippet&order=date&maxResults=${maxResults}&type=video`;
+    // Intentar cache
+    try {
+        const cached = JSON.parse(localStorage.getItem(VIDEO_CACHE_KEY));
+        if (cached && cached.timestamp && (Date.now() - cached.timestamp < VIDEO_CACHE_TTL_MS)) {
+            const items = cached.items || [];
+            // Si pide menos que lo cacheado, slice
+            if (items.length >= maxResults) return items.slice(0, maxResults);
+            // Si pide más, seguir a fetch pero devolver cache mientras tanto no — mejor fetch
+            if (items.length > 0 && maxResults <= 50) return items.slice(0, maxResults);
+        }
+    } catch {}
+
+    const url = `${API_BASE}/api/videos?maxResults=${maxResults}`;
     const res = await fetch(url);
     const data = await res.json();
-    return (data.items || []).map(item => ({
-        id: item.id.videoId,
-        title: item.snippet.title,
-        thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url,
-        date: new Date(item.snippet.publishedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }),
-        description: item.snippet.description
-    }));
-}
 
-// ===== TRANSCRIPT (YouTube IFrame Player API) =====
-let ytPlayerReady = false;
-let ytPlayerPromiseResolve = null;
-const ytPlayerPromise = new Promise(r => { ytPlayerPromiseResolve = r; });
-
-function loadYouTubeIFrameAPI() {
-    if (window.YT && window.YT.Player) { ytPlayerReady = true; ytPlayerPromiseResolve(); return; }
-    const tag = document.createElement('script');
-    tag.src = 'https://www.youtube.com/iframe_api';
-    document.head.appendChild(tag);
-    window.onYouTubeIframeAPIReady = () => { ytPlayerReady = true; ytPlayerPromiseResolve(); };
-}
-
-loadYouTubeIFrameAPI();
-
-async function getYouTubeTranscript(videoId) {
-    try {
-        // Method 1: Use YouTube's timedtext API directly (works for public captions)
-        const playerUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        const oEmbedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(playerUrl)}&format=json`;
-        await fetch(oEmbedUrl);
-
-        // Try fetching captions via the timedtext endpoint
-        const timedtextUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=es&fmt=srv3`;
-        const res = await fetch(timedtextUrl);
-        const xml = await res.text();
-
-        if (xml.includes('<text')) {
-            const entries = [];
-            const regex = /<text start="([\d.]+)"[^>]*>(.*?)<\/text>/g;
-            let m;
-            while ((m = regex.exec(xml)) !== null) {
-                const start = parseFloat(m[1]);
-                const text = m[2].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/<[^>]*>/g, '').trim();
-                if (text) entries.push({ start, text });
+    if (data.error === 'quotaExceeded' || res.status === 429) {
+        // Intentar devolver cache aunque expirado
+        try {
+            const cached = JSON.parse(localStorage.getItem(VIDEO_CACHE_KEY));
+            if (cached && cached.items && cached.items.length) {
+                console.warn('YouTube quota exceeded, usando cache expirado');
+                return cached.items.slice(0, maxResults);
             }
-            if (entries.length > 0) return entries;
-        }
-
-        // Method 2: Try with English captions if Spanish not available
-        const timedtextEn = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=en&fmt=srv3`;
-        const resEn = await fetch(timedtextEn);
-        const xmlEn = await resEn.text();
-
-        if (xmlEn.includes('<text')) {
-            const entries = [];
-            const regex = /<text start="([\d.]+)"[^>]*>(.*?)<\/text>/g;
-            let m;
-            while ((m = regex.exec(xmlEn)) !== null) {
-                const start = parseFloat(m[1]);
-                const text = m[2].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/<[^>]*>/g, '').trim();
-                if (text) entries.push({ start, text });
-            }
-            if (entries.length > 0) return entries;
-        }
-
-        // Method 3: Fallback - use hidden player to extract captions
-        return await getTranscriptViaPlayer(videoId);
-    } catch (error) {
-        console.error('Error getting transcript:', error);
-        return null;
+        } catch {}
+        throw new Error('quotaExceeded');
     }
+    if (data.error) throw new Error(data.error);
+    if (!data.items) throw new Error('No se pudieron cargar videos');
+
+    const videos = data.items.map(item => ({
+        id: item.id,
+        title: item.title,
+        thumbnail: item.thumbnail,
+        date: item.date ? new Date(item.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '',
+        description: item.description || ''
+    }));
+
+    // Guardar cache
+    try {
+        localStorage.setItem(VIDEO_CACHE_KEY, JSON.stringify({ timestamp: Date.now(), items: videos }));
+    } catch {}
+    return videos;
 }
 
-function getTranscriptViaPlayer(videoId) {
-    return new Promise((resolve) => {
-        ytPlayerPromise.then(() => {
-            const container = document.createElement('div');
-            container.id = 'yt-transcript-player-' + videoId;
-            container.style.cssText = 'position:fixed;bottom:-9999px;left:-9999px;width:1px;height:1px;';
-            document.body.appendChild(container);
+// ===== TRANSCRIPT (hibrido: cliente via corsproxy + server) =====
+async function getYouTubeTranscript(videoId) {
+    // 1. Cache local
+    const cached = getCachedTranscript(videoId);
+    if (cached && Array.isArray(cached) && cached.length) return cached;
 
-            const player = new YT.Player(container.id, {
-                videoId: videoId,
-                playerVars: { autoplay: 0, controls: 0, cc_load_policy: 1, cc_lang_pref: 'es' },
-                events: {
-                    onReady: () => {
-                        setTimeout(() => {
-                            try {
-                                const data = player.getVideoData();
-                                const captions = player.getPlayerResponse?.()?.captions;
-                                if (captions?.playerCaptionsTracklistRenderer?.captionTracks) {
-                                    const tracks = captions.playerCaptionsTracklistRenderer.captionTracks;
-                                    const track = tracks.find(t => t.languageCode === 'es') || tracks[0];
-                                    if (track?.baseUrl) {
-                                        fetch(track.baseUrl + '&fmt=srv3').then(r => r.text()).then(xml => {
-                                            const entries = [];
-                                            const regex = /<text start="([\d.]+)"[^>]*>(.*?)<\/text>/g;
-                                            let m;
-                                            while ((m = regex.exec(xml)) !== null) {
-                                                const start = parseFloat(m[1]);
-                                                const text = m[2].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/<[^>]*>/g, '').trim();
-                                                if (text) entries.push({ start, text });
-                                            }
-                                            resolve(entries.length > 0 ? entries : null);
-                                        }).catch(() => resolve(null));
-                                    } else {
-                                        resolve(null);
-                                    }
-                                } else {
-                                    resolve(null);
-                                }
-                                player.destroy();
-                                container.remove();
-                            } catch (e) {
-                                resolve(null);
-                                try { player.destroy(); container.remove(); } catch {}
-                            }
-                        }, 1500);
-                    },
-                    onError: () => {
-                        resolve(null);
-                        try { container.remove(); } catch {}
-                    }
-                }
-            });
-        });
-    });
+    // 2. Intento cliente via corsproxy.io (como la web original) — no depende de IP del server
+    try {
+        const clientEntries = await getYouTubeTranscriptClient(videoId);
+        if (clientEntries && clientEntries.length) {
+            try { setCachedTranscript(videoId, clientEntries); } catch {}
+            return clientEntries;
+        }
+    } catch (e) { console.warn('Client transcript failed:', e.message); }
+
+    // 3. Fallback server (youtube_transcript_api)
+    try {
+        const res = await fetch(`${API_BASE}/api/transcript?videoId=${videoId}`);
+        const data = await res.json();
+        if (data.transcript) {
+            const entries = data.transcript.split('\n').filter(l => l.trim()).map((text, i) => ({ start: i * 3, text: text.trim() }));
+            if (entries.length) {
+                try { setCachedTranscript(videoId, entries); } catch {}
+                return entries;
+            }
+        }
+    } catch (e) { /* server not available */ }
+    return null;
+}
+
+// Metodo cliente identico a la web original (web raiz) — usa corsproxy.io
+async function getYouTubeTranscriptClient(videoId) {
+    const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}`;
+    const res = await fetch(proxyUrl);
+    const html = await res.text();
+
+    const match = html.match(/"captions":\s*(\{.*?"playerCaptionsTracklistRenderer".*?\})\s*,\s*"videoDetails"/s);
+    if (!match) return null;
+
+    const captionsData = JSON.parse(match[1]);
+    const tracks = captionsData?.playerCaptionsTracklistRenderer?.captionTracks;
+    if (!tracks || tracks.length === 0) return null;
+
+    const langTrack = tracks.find(t => t.languageCode === 'es') || tracks[0];
+    let captionUrl = langTrack.baseUrl;
+    // Intentar fetch directo primero, si falla por CORS usar proxy
+    let captionXml;
+    try {
+        const r = await fetch(captionUrl);
+        captionXml = await r.text();
+        if (!captionXml.includes('<text')) throw new Error('no text');
+    } catch {
+        const proxied = `https://corsproxy.io/?url=${encodeURIComponent(captionUrl)}`;
+        const r2 = await fetch(proxied);
+        captionXml = await r2.text();
+    }
+
+    const entries = [];
+    const regex = /<text[^>]*>(.*?)<\/text>/g;
+    let m;
+    let idx = 0;
+    while ((m = regex.exec(captionXml)) !== null) {
+        const startMatch = m[0].match(/start="([\d.]+)"/);
+        const start = startMatch ? parseFloat(startMatch[1]) : idx * 3;
+        const text = m[1].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/<[^>]*>/g, '').trim();
+        if (text) entries.push({ start, text });
+        idx++;
+    }
+    return entries.length ? entries : null;
+}
+
+function parseCaptionXML(xml) {
+    const entries = [];
+    const regex = /<text start="([\d.]+)"[^>]*>(.*?)<\/text>/g;
+    let m;
+    while ((m = regex.exec(xml)) !== null) {
+        const start = parseFloat(m[1]);
+        const text = m[2].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/<[^>]*>/g, '').trim();
+        if (text) entries.push({ start, text });
+    }
+    return entries.length > 0 ? entries : null;
+}
+
+function parseManualTranscript(text) {
+    if (!text || !text.trim()) return null;
+    const lines = text.split('\n').filter(l => l.trim());
+    return lines.map((line, i) => ({ start: i * 3, text: line.trim() }));
 }
 
 function filterTranscript(entries, skipMinutes = TRANSCRIPT_SKIP_MINUTES) {
@@ -167,77 +173,26 @@ function formatTranscript(entries, skipMinutes = TRANSCRIPT_SKIP_MINUTES) {
     return result.trim();
 }
 
-// ===== OPENROUTER AI =====
-async function callOpenRouter(prompt) {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+// ===== AI (via server proxy — keys no expuestas) =====
+async function callServerAI(endpoint, payload) {
+    const res = await fetch(`${API_BASE}${endpoint}`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${OPENROUTER_KEY}`,
-            'HTTP-Referer': window.location.origin,
-            'X-Title': 'Academia Bíblica'
-        },
-        body: JSON.stringify({
-            model: 'poolside/laguna-s-2.1:free',
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.7,
-            max_tokens: 4096
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
     });
-    const data = await response.json();
-    if (data.choices && data.choices[0]) return data.choices[0].message.content;
-    throw new Error(data.error?.message || 'Error en la IA');
+    const data = await res.json();
+    if (data.result) return data.result;
+    throw new Error(data.error || 'Error en la IA');
 }
 
 // ===== BIBLICAL STUDY =====
-async function generateBiblicalStudy(transcript, videoTitle) {
-    const prompt = `Eres un experto en estudios bíblicos. Analiza la siguiente predicación cristiana y proporciona:
-
-1. RESUMEN: Un resumen claro y conciso (3-4 párrafos)
-
-2. MENSAJE PRINCIPAL: El mensaje central más importante
-
-3. VERSÍCULOS MENCIONADOS: Lista cada versículo con:
-   - Referencia completa (Libro Capítulo:Versículo)
-   - El texto del versículo
-   - Por qué se mencionó en la predicación
-
-4. CONTEXTO Y EXPLICACIÓN: Contexto histórico y espiritual
-
-5. PARA PROFUNDIZAR: Temas para estudio personal
-
-Título: ${videoTitle}
-
-Transcripción:
-${transcript || 'No disponible. Analiza solo por el título: ' + videoTitle}
-
-Responde en español con secciones claras usando markdown.`;
-    return await callOpenRouter(prompt);
+async function generateBiblicalStudy(transcript, videoTitle, videoId = '') {
+    return await callServerAI('/api/study', { transcript: transcript || '', title: videoTitle, videoId });
 }
 
 // ===== QUIZ GENERATOR =====
-async function generateQuiz(transcript, videoTitle) {
-    const prompt = `Basándote en la siguiente predicación cristiana, genera un quiz de 10 preguntas de opción múltiple.
-
-Cada pregunta debe tener:
-- La pregunta clara y concisa
-- 4 opciones (A, B, C, D)
-- La respuesta correcta marcada con un asterisco *
-
-Ejemplo:
-1. ¿Cuál es el tema principal de esta predicación?
-A) La oración
-B) La fe*
-C) El amor
-D) La esperanza
-
-Título: ${videoTitle}
-
-Transcripción:
-${transcript || 'No disponible. Genera preguntas basadas en el título: ' + videoTitle}
-
-Responde SOLO con las preguntas en el formato indicado, sin explicaciones adicionales.`;
-    return await callOpenRouter(prompt);
+async function generateQuiz(transcript, videoTitle, videoId = '') {
+    return await callServerAI('/api/quiz', { transcript: transcript || '', title: videoTitle, videoId });
 }
 
 function parseQuiz(aiResponse) {
@@ -306,8 +261,18 @@ function parseAIResponse(text) {
     return sections;
 }
 
+function escapeHtml(str) {
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function renderMarkdown(text) {
-    return text
+    const escaped = escapeHtml(text);
+    return escaped
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         .replace(/\n/g, '<br>');
@@ -319,7 +284,13 @@ function getStorage(key) {
 }
 
 function setStorage(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {
+        if (e.name === 'QuotaExceededError' || e.code === 22) {
+            console.warn('localStorage lleno, limpiando cache de videos');
+            try { localStorage.removeItem(VIDEO_CACHE_KEY); } catch {}
+            try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+        }
+    }
 }
 
 function getNotes() { return getStorage('academia_notes') || {}; }
@@ -338,48 +309,147 @@ function setCachedQuiz(videoId, data) { setStorage('academia_quiz_' + videoId, d
 function getCachedTranscript(videoId) { return getStorage('academia_transcript_' + videoId); }
 function setCachedTranscript(videoId, data) { setStorage('academia_transcript_' + videoId, data); }
 
-// ===== PDF EXPORT =====
-function exportTranscriptPDF(title, text) {
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js';
-    script.onload = () => {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        const margin = 20;
-        const lineHeight = 7;
-        let y = margin;
+// ===== PDF EXPORT (singleton loader, premium) =====
+let _jspdfLoading = null;
+function ensureJsPDF() {
+    if (window.jspdf) return Promise.resolve();
+    if (_jspdfLoading) return _jspdfLoading;
+    _jspdfLoading = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        script.onload = () => resolve();
+        script.onerror = () => {
+            // Fallback CDN
+            const fallback = document.createElement('script');
+            fallback.src = 'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js';
+            fallback.onload = () => resolve();
+            fallback.onerror = () => reject(new Error('No se pudo cargar jsPDF'));
+            document.head.appendChild(fallback);
+        };
+        document.head.appendChild(script);
+    });
+    return _jspdfLoading;
+}
 
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(16);
-        doc.text('Academia Bíblica - Vida Cristiana', margin, y);
-        y += lineHeight + 4;
+function _pdfHeader(doc, title) {
+    const margin = 20;
+    // Top bar
+    doc.setFillColor(139, 92, 246);
+    doc.rect(0, 0, 210, 12, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('ACADEMIA BIBLICA  •  IGLESIA VIDA CRISTIANA', margin, 8);
+    doc.setTextColor(40, 40, 60);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    const titleLines = doc.splitTextToSize(title, 170);
+    doc.text(titleLines, margin, 22);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 140);
+    const dateStr = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    doc.text(dateStr, margin, 28 + (titleLines.length - 1) * 6);
+    // Divider
+    doc.setDrawColor(200, 180, 255);
+    doc.setLineWidth(0.4);
+    const yLine = 30 + (titleLines.length - 1) * 6;
+    doc.line(margin, yLine, 190, yLine);
+    return yLine + 8;
+}
 
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(13);
-        const titleLines = doc.splitTextToSize(title, 170);
-        doc.text(titleLines, margin, y);
-        y += titleLines.length * lineHeight + 6;
+function _pdfFooter(doc) {
+    const total = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= total; i++) {
+        doc.setPage(i);
+        doc.setFontSize(7);
+        doc.setTextColor(150, 150, 170);
+        doc.text(`Pagina ${i} de ${total}  •  Academia Biblica - Vida Cristiana`, 20, 287);
+        doc.text(new Date().toLocaleDateString('es-ES'), 190, 287, { align: 'right' });
+    }
+}
 
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        const lines = doc.splitTextToSize(text, 170);
-        for (const line of lines) {
-            if (y > 270) {
-                doc.addPage();
-                y = margin;
-            }
-            doc.text(line, margin, y);
-            y += lineHeight;
+async function exportTranscriptPDF(title, text) {
+    await ensureJsPDF();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    let y = _pdfHeader(doc, title);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(40, 40, 60);
+    const lines = doc.splitTextToSize(text, 170);
+    for (const line of lines) {
+        if (y > 272) { doc.addPage(); y = 20; }
+        doc.text(line, 20, y);
+        y += 6;
+    }
+    _pdfFooter(doc);
+    doc.save(`transcripcion-${title.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50)}.pdf`);
+}
+
+async function exportStudyPDF(title, studyMarkdown) {
+    await ensureJsPDF();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    let y = _pdfHeader(doc, title + ' — Estudio Biblico');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(40, 40, 60);
+    // Simple markdown: strip ** and render bold via font
+    const clean = studyMarkdown.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1');
+    const lines = doc.splitTextToSize(clean, 170);
+    for (const line of lines) {
+        if (y > 272) { doc.addPage(); y = 20; }
+        // Detect section headers (lines starting with #)
+        if (line.trim().startsWith('#')) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(124, 58, 237);
+        } else {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(40, 40, 60);
         }
+        doc.text(line.replace(/^#+\s*/, ''), 20, y);
+        y += 6;
+    }
+    _pdfFooter(doc);
+    doc.save(`estudio-${title.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50)}.pdf`);
+}
 
-        y += 10;
-        doc.setFontSize(8);
-        doc.setTextColor(150);
-        doc.text('Generado por Academia Bíblica - Iglesia Vida Cristiana', margin, y);
-
-        doc.save(`transcripcion-${title.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50)}.pdf`);
-    };
-    document.head.appendChild(script);
+// ===== NAVBAR (a11y) =====
+function initNavbar() {
+    const toggle = document.getElementById('navToggle');
+    const links = document.getElementById('navLinks');
+    if (!toggle || !links) return;
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-controls', 'navLinks');
+    toggle.addEventListener('click', () => {
+        const open = links.classList.toggle('open');
+        toggle.classList.toggle('active', open);
+        toggle.setAttribute('aria-expanded', String(open));
+    });
+    links.querySelectorAll('a').forEach(a => {
+        a.addEventListener('click', () => {
+            links.classList.remove('open');
+            toggle.classList.remove('active');
+            toggle.setAttribute('aria-expanded', 'false');
+        });
+    });
+    document.addEventListener('click', (e) => {
+        if (!links.contains(e.target) && !toggle.contains(e.target)) {
+            links.classList.remove('open');
+            toggle.classList.remove('active');
+            toggle.setAttribute('aria-expanded', 'false');
+        }
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            links.classList.remove('open');
+            toggle.classList.remove('active');
+            toggle.setAttribute('aria-expanded', 'false');
+        }
+    });
 }
 
 // ===== UTILS =====
@@ -387,7 +457,17 @@ function getUrlParam(name) {
     return new URLSearchParams(window.location.search).get(name);
 }
 
+let _toastQueue = [];
+let _toastShowing = false;
 function showToast(message) {
+    _toastQueue.push(message);
+    if (_toastShowing) return;
+    _showNextToast();
+}
+function _showNextToast() {
+    if (_toastQueue.length === 0) { _toastShowing = false; return; }
+    _toastShowing = true;
+    const msg = _toastQueue.shift();
     let toast = document.getElementById('toast');
     if (!toast) {
         toast = document.createElement('div');
@@ -395,9 +475,12 @@ function showToast(message) {
         toast.className = 'toast';
         document.body.appendChild(toast);
     }
-    toast.textContent = message;
+    toast.textContent = msg;
     toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 2500);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(_showNextToast, 300);
+    }, 2500);
 }
 
 function renderStudyResults(containerId, aiResponse) {
@@ -419,15 +502,15 @@ function renderStudyResults(containerId, aiResponse) {
         if (Array.isArray(versesData) && versesData.length > 0) {
             versesList.innerHTML = versesData.map(v => `
                 <div class="bible-verse-card">
-                    <span class="bible-verse-ref">${v.reference || 'Versículo'}</span>
-                    <p class="bible-verse-text">${v.text || ''}</p>
-                    <p class="bible-verse-explain">${v.explanation || ''}</p>
+                    <span class="bible-verse-ref">${escapeHtml(v.reference || 'Versiculo')}</span>
+                    <p class="bible-verse-text">${escapeHtml(v.text || '')}</p>
+                    <p class="bible-verse-explain">${escapeHtml(v.explanation || '')}</p>
                 </div>
             `).join('');
         } else if (typeof versesData === 'string' && versesData.length > 0) {
             versesList.innerHTML = `<div class="bible-verse-card"><div class="bible-section-content">${renderMarkdown(versesData)}</div></div>`;
         } else {
-            versesList.innerHTML = '<p style="color:var(--text-muted)">Los versículos se encuentran en la sección de contexto.</p>';
+            versesList.innerHTML = '<p style="color:var(--text-muted)">Los versiculos se encuentran en la seccion de contexto.</p>';
         }
     }
 }

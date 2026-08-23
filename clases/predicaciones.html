@@ -14,7 +14,7 @@
             <a href="index.html" class="nav-logo">
                 <img src="logos/logo vc.png" alt="Vida Cristiana" class="nav-logo-img">
             </a>
-            <button class="nav-toggle" id="navToggle" aria-label="Menu">
+            <button class="nav-toggle" id="navToggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="navLinks">
                 <span></span><span></span><span></span>
             </button>
             <ul class="nav-links" id="navLinks">
@@ -37,7 +37,8 @@
 
             <div class="search-bar">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                <input type="text" id="searchInput" placeholder="Buscar predicacion...">
+                <input type="text" id="searchInput" placeholder="Buscar predicacion..." aria-label="Buscar predicacion">
+                <button id="searchClear" aria-label="Limpiar busqueda" style="display:none; position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:18px;">×</button>
             </div>
 
             <div class="sermons-grid" id="sermonsGrid">
@@ -54,47 +55,66 @@
 
     <script src="script.js"></script>
     <script>
-        document.getElementById('navToggle').addEventListener('click', () => {
-            document.getElementById('navToggle').classList.toggle('active');
-            document.getElementById('navLinks').classList.toggle('open');
-        });
-
+        initNavbar();
         let allVideos = [];
 
         fetchYouTubeVideos(50).then(videos => {
             allVideos = videos;
             renderSermons(videos);
-        }).catch(() => {
-            document.getElementById('sermonsGrid').innerHTML = '<div class="empty-state"><h3>Error al cargar</h3><p>No se pudieron cargar las predicaciones.</p></div>';
+        }).catch((err) => {
+            const isQuota = err && err.message === 'quotaExceeded';
+            document.getElementById('sermonsGrid').innerHTML = isQuota
+                ? '<div class="empty-state"><h3>Cuota de YouTube alcanzada</h3><p>Has alcanzado el limite diario de la API. Intenta de nuevo manana o recarga la pagina (usa cache local).</p><button class="btn btn-outline btn-sm" onclick="location.reload()" style="margin-top:12px;">Reintentar</button></div>'
+                : '<div class="empty-state"><h3>Error al cargar</h3><p>No se pudieron cargar las predicaciones. Verifica tu conexion y que el servidor este corriendo en localhost:5000.</p></div>';
         });
 
+        function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+        function highlight(text, q) {
+            if (!q) return escapeHtml(text);
+            const re = new RegExp('(' + escapeRegExp(q) + ')', 'gi');
+            return escapeHtml(text).replace(re, '<mark style="background:rgba(139,92,246,0.3); color:inherit; padding:0 2px; border-radius:3px;">$1</mark>');
+        }
+
+        let currentQuery = '';
         function renderSermons(videos) {
             const grid = document.getElementById('sermonsGrid');
             if (!videos.length) {
-                grid.innerHTML = '<div class="empty-state"><h3>Sin resultados</h3><p>No se encontraron predicaciones.</p></div>';
+                grid.innerHTML = '<div class="empty-state"><h3>Sin resultados</h3><p>No se encontraron predicaciones para "' + escapeHtml(currentQuery) + '".</p></div>';
                 return;
             }
             grid.innerHTML = videos.map((v, i) => `
                 <a href="estudio.html?id=${v.id}" class="sermon-card">
                     <div class="sermon-thumb">
-                        <img src="${v.thumbnail}" alt="${v.title}" loading="lazy">
-                        <div class="sermon-play">
+                        <img src="${v.thumbnail}" alt="${escapeHtml(v.title)}" loading="lazy" width="480" height="270">
+                        <div class="sermon-play" aria-hidden="true">
                             <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                         </div>
                         ${i === 0 ? '<span class="sermon-badge">Reciente</span>' : ''}
                     </div>
                     <div class="sermon-info">
-                        <h3>${v.title}</h3>
-                        <p>${v.date}</p>
+                        <h3>${highlight(v.title, currentQuery)}</h3>
+                        <p>${escapeHtml(v.date)}</p>
                     </div>
                 </a>
             `).join('');
         }
 
-        document.getElementById('searchInput').addEventListener('input', (e) => {
-            const q = e.target.value.toLowerCase();
-            const filtered = allVideos.filter(v => v.title.toLowerCase().includes(q));
+        function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+        const searchInput = document.getElementById('searchInput');
+        const searchClear = document.getElementById('searchClear');
+        searchInput.addEventListener('input', debounce((e) => {
+            currentQuery = e.target.value.trim();
+            searchClear.style.display = currentQuery ? 'block' : 'none';
+            const q = currentQuery.toLowerCase();
+            const filtered = !q ? allVideos : allVideos.filter(v =>
+                v.title.toLowerCase().includes(q) || (v.description && v.description.toLowerCase().includes(q))
+            );
             renderSermons(filtered);
+        }, 250));
+        searchClear.addEventListener('click', () => {
+            searchInput.value = ''; currentQuery = ''; searchClear.style.display = 'none';
+            renderSermons(allVideos); searchInput.focus();
         });
     </script>
 </body>

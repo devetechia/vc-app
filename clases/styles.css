@@ -189,6 +189,17 @@ button { cursor: pointer; font-family: inherit; }
 .search-bar input::placeholder { color: var(--text-muted); }
 .search-bar svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
 
+/* FEATURE ICONS */
+.feature-icon { width: 56px; height: 56px; margin: 0 auto 16px; background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.25); border-radius: 14px; display: flex; align-items: center; justify-content: center; color: var(--purple-light); }
+
+/* DROP ZONE */
+.drop-zone { border: 1px dashed rgba(139,92,246,0.3); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; color: var(--text-muted); font-size: 13px; background: rgba(139,92,246,0.05); transition: all 0.2s; cursor: pointer; }
+.drop-zone.drag-over { border-color: var(--purple); background: rgba(139,92,246,0.12); color: var(--text); }
+.drop-zone-link { color: var(--purple-light); text-decoration: underline; cursor: pointer; }
+
+/* SEARCH MARK */
+mark { background: rgba(139,92,246,0.3); color: inherit; padding: 0 2px; border-radius: 3px; }
+
 /* EMPTY STATE */
 .empty-state { text-align: center; padding: 60px 24px; color: var(--text-muted); }
 .empty-state h3 { font-size: 18px; margin-bottom: 8px; color: var(--text); }

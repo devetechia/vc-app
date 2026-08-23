@@ -14,7 +14,7 @@
             <a href="index.html" class="nav-logo">
                 <img src="logos/logo vc.png" alt="Vida Cristiana" class="nav-logo-img">
             </a>
-            <button class="nav-toggle" id="navToggle" aria-label="Menu">
+            <button class="nav-toggle" id="navToggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="navLinks">
                 <span></span><span></span><span></span>
             </button>
             <ul class="nav-links" id="navLinks">
@@ -50,6 +50,20 @@
                 </div>
             </div>
 
+            <!-- MANUAL TRANSCRIPT FOR QUIZ (fallback) -->
+            <div id="quizManual" style="display:none; max-width:700px; margin:0 auto 24px;">
+                <div style="background:rgba(255,215,0,0.08); border:1px solid rgba(255,215,0,0.2); border-radius:12px; padding:20px; margin-bottom:16px;">
+                    <p style="color:var(--gold); font-weight:600; margin-bottom:8px;">No se pudo cargar la transcripcion automaticamente</p>
+                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:12px;">Pega la transcripcion para generar el test. O sube un .txt:</p>
+                    <input type="file" id="quizTranscriptFile" accept=".txt,.srt,.vtt" style="color:var(--text-muted); font-size:13px; margin-bottom:12px;">
+                    <textarea id="quizManualTranscript" class="note-editor" placeholder="Pega la transcripcion aqui..." style="min-height:120px;"></textarea>
+                    <div style="margin-top:12px; display:flex; gap:8px;">
+                        <button class="btn btn-sm btn-gold" id="btnUseManualQuiz">Generar test con este texto</button>
+                        <button class="btn btn-sm btn-outline" id="btnCancelManualQuiz">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- QUIZ IN PROGRESS -->
             <div id="quizPlay" style="display:none;">
                 <div style="text-align:center; margin-bottom:24px;">
@@ -81,11 +95,7 @@
 
     <script src="script.js"></script>
     <script>
-        document.getElementById('navToggle').addEventListener('click', () => {
-            document.getElementById('navToggle').classList.toggle('active');
-            document.getElementById('navLinks').classList.toggle('open');
-        });
-
+        initNavbar();
         const preselectedId = getUrlParam('id');
         let currentQuiz = [];
         let currentVideoId = '';
@@ -96,16 +106,16 @@
         fetchYouTubeVideos(50).then(videos => {
             const grid = document.getElementById('quizSermons');
             grid.innerHTML = videos.map(v => `
-                <div class="sermon-card" data-video-id="${v.id}" data-video-title="${v.title.replace(/"/g, '&quot;')}">
+                <div class="sermon-card" data-video-id="${v.id}" data-video-title="${v.title.replace(/"/g, '&quot;')}" role="button" tabindex="0" aria-label="Hacer test de ${v.title.replace(/"/g, '&quot;')}">
                     <div class="sermon-thumb">
-                        <img src="${v.thumbnail}" alt="${v.title}" loading="lazy">
-                        <div class="sermon-play">
+                        <img src="${v.thumbnail}" alt="${v.title.replace(/"/g, '&quot;')}" loading="lazy" width="480" height="270">
+                        <div class="sermon-play" aria-hidden="true">
                             <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                         </div>
                     </div>
                     <div class="sermon-info">
-                        <h3>${v.title}</h3>
-                        <p>${v.date}</p>
+                        <h3>${escapeHtml(v.title)}</h3>
+                        <p>${escapeHtml(v.date)}</p>
                     </div>
                 </div>
             `).join('');
@@ -120,6 +130,11 @@
                 const video = videos.find(v => v.id === preselectedId);
                 if (video) startQuiz(video.id, video.title);
             }
+        }).catch(err => {
+            const isQuota = err && err.message === 'quotaExceeded';
+            document.getElementById('quizSermons').innerHTML = isQuota
+                ? '<div class="empty-state"><h3>Cuota alcanzada</h3><p>Limite diario de YouTube. Se mostrara cache local al recargar.</p></div>'
+                : '<div class="empty-state"><h3>Error al cargar</h3><p>No se pudieron cargar las predicaciones. Verifica que el servidor este corriendo.</p></div>';
         });
 
         function renderQuizHistory() {
@@ -139,13 +154,17 @@
             `).join('');
         }
 
+        let pendingQuizTranscript = '';
+
         async function startQuiz(videoId, title) {
             currentVideoId = videoId;
             currentVideoTitle = title;
             currentQuiz = [];
             answers = [];
+            pendingQuizTranscript = '';
 
             document.getElementById('quizSelect').style.display = 'none';
+            document.getElementById('quizManual').style.display = 'none';
             document.getElementById('quizPlay').style.display = 'block';
             document.getElementById('quizResult').style.display = 'none';
             document.getElementById('quizPlayTitle').textContent = title;
@@ -161,9 +180,21 @@
             document.getElementById('quizContainer').innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>Generando preguntas con IA...</p><p class="loading-sub">Esto puede tardar 30-60 segundos</p></div>';
 
             try {
-                const text = await getYouTubeTranscript(videoId);
-                const transcript = text ? filterTranscript(text, 20) : '';
-                const response = await generateQuiz(transcript, title);
+                const cachedTranscript = getCachedTranscript(videoId);
+                let entries = cachedTranscript || await getYouTubeTranscript(videoId);
+                let transcript = '';
+                if (entries && entries.length) {
+                    transcript = filterTranscript(entries, 20);
+                    if (transcript) {
+                        try { setCachedTranscript(videoId, entries); } catch {}
+                    }
+                }
+                // Como la web original: si no hay transcripcion, generar igual con el titulo
+                if (!transcript) {
+                    console.warn('Sin transcripcion, generando quiz con titulo');
+                }
+
+                const response = await generateQuiz(transcript, title, videoId);
                 currentQuiz = parseQuiz(response);
 
                 if (currentQuiz.length === 0) {
@@ -173,11 +204,69 @@
 
                 setCachedQuiz(videoId, currentQuiz);
                 renderQuizQuestions();
+                // Si se genero sin transcripcion, avisar que puede mejorarse con manual
+                if (!transcript) {
+                    const banner = document.createElement('div');
+                    banner.style.cssText = 'background:rgba(255,215,0,0.08); border:1px solid rgba(255,215,0,0.2); border-radius:8px; padding:12px; margin-bottom:16px; text-align:center; font-size:13px; color:var(--text-muted);';
+                    banner.innerHTML = 'Test generado solo con el titulo (sin transcripcion). <a href="#" id="linkManualQuiz" style="color:var(--gold); text-decoration:underline;">Mejorar con transcripcion manual</a>';
+                    document.getElementById('quizContainer').prepend(banner);
+                    document.getElementById('linkManualQuiz').addEventListener('click', (e) => {
+                        e.preventDefault();
+                        document.getElementById('quizManual').style.display = 'block';
+                        document.getElementById('quizPlay').style.display = 'none';
+                    });
+                }
             } catch (err) {
                 console.error(err);
-                document.getElementById('quizContainer').innerHTML = '<div class="empty-state"><h3>Error</h3><p>No se pudo generar el test. Verifica tu conexion.</p></div>';
+                const isQuota = err.message === 'quotaExceeded' || String(err).includes('quota');
+                if (isQuota) {
+                    document.getElementById('quizContainer').innerHTML = '<div class="empty-state"><h3>Cuota de YouTube alcanzada</h3><p>Usa la transcripcion manual para generar el test.</p></div>';
+                    document.getElementById('quizManual').style.display = 'block';
+                    document.getElementById('quizPlay').style.display = 'none';
+                } else {
+                    document.getElementById('quizContainer').innerHTML = '<div class="empty-state"><h3>Error</h3><p>No se pudo generar el test. Verifica tu conexion.</p></div>';
+                }
             }
         }
+
+        async function generateQuizFromManual(transcriptText) {
+            document.getElementById('quizManual').style.display = 'none';
+            document.getElementById('quizPlay').style.display = 'block';
+            document.getElementById('quizContainer').innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>Generando preguntas con IA...</p></div>';
+            try {
+                const entries = parseManualTranscript(transcriptText);
+                const transcript = entries ? filterTranscript(entries, 20) : transcriptText;
+                if (entries) try { setCachedTranscript(currentVideoId, entries); } catch {}
+                const response = await generateQuiz(transcript, currentVideoTitle, currentVideoId);
+                currentQuiz = parseQuiz(response);
+                if (currentQuiz.length === 0) throw new Error('No questions');
+                setCachedQuiz(currentVideoId, currentQuiz);
+                renderQuizQuestions();
+            } catch (err) {
+                document.getElementById('quizContainer').innerHTML = '<div class="empty-state"><h3>Error</h3><p>No se pudieron generar preguntas.</p></div>';
+            }
+        }
+
+        document.getElementById('btnUseManualQuiz').addEventListener('click', () => {
+            const text = document.getElementById('quizManualTranscript').value.trim();
+            if (!text) { showToast('Pega la transcripcion primero'); return; }
+            generateQuizFromManual(text);
+        });
+        document.getElementById('btnCancelManualQuiz').addEventListener('click', () => {
+            document.getElementById('quizManual').style.display = 'none';
+            document.getElementById('quizSelect').style.display = 'block';
+            document.getElementById('quizPlay').style.display = 'none';
+        });
+        document.getElementById('quizTranscriptFile').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                document.getElementById('quizManualTranscript').value = ev.target.result;
+                showToast('Archivo cargado');
+            };
+            reader.readAsText(file);
+        });
 
         function renderQuizQuestions() {
             const container = document.getElementById('quizContainer');
