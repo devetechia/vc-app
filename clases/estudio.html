@@ -58,26 +58,25 @@
             </div>
             <div class="transcript-manual" id="transcriptManual" style="display:none; margin-top:16px;">
                 <div style="background:rgba(255,215,0,0.08); border:1px solid rgba(255,215,0,0.2); border-radius:8px; padding:16px; margin-bottom:12px;">
-                    <p style="color:var(--gold); font-weight:600; margin-bottom:8px;">Carga la transcripcion manualmente</p>
-                    <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:8px;">Opcion 1 — Copiar desde YouTube:</p>
-                    <ol style="color:var(--text-muted); font-size:0.85rem; padding-left:20px; margin:0 0 12px 0;">
-                        <li>Abre el video en YouTube</li>
-                        <li>Haz click en "…" debajo del video</li>
-                        <li>Selecciona "Mostrar transcripcion"</li>
-                        <li>Copia todo el texto y pegalo aqui abajo</li>
-                    </ol>
-                    <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:8px;">Opcion 2 — Arrastra un archivo o seleccionalo:</p>
-                    <div id="dropZone" class="drop-zone">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        <span>Arrastra .txt/.srt/.vtt aqui o <label for="transcriptFile" class="drop-zone-link">elige archivo</label></span>
-                        <input type="file" id="transcriptFile" accept=".txt,.srt,.vtt" hidden>
-                        <span id="fileName" style="font-size:12px; color:var(--gold); margin-top:4px; display:none;"></span>
-                    </div>
+                    <p style="color:var(--gold); font-weight:600; margin-bottom:8px;">Transcripcion aun no disponible</p>
+                    <p style="color:var(--text-muted); font-size:0.85rem; margin:0;">YouTube esta generando los subtitulos de este video (tarda 2-6h desde la publicacion). Puedes generar el estudio desde el titulo o volver mas tarde para la transcripcion completa.</p>
+                    <p style="color:var(--text-muted); font-size:0.85rem; margin-top:12px;"><a href="#" id="linkShowManual" style="color:var(--purple-light); text-decoration:underline;">Opcion avanzada: pegar transcripcion manual</a></p>
                 </div>
-                <textarea class="note-editor" id="manualTranscript" placeholder="Pega la transcripcion aqui..." style="min-height:150px;" aria-label="Transcripcion manual"></textarea>
-                <div style="margin-top:8px; display:flex; gap:8px;">
-                    <button class="btn btn-sm btn-gold" id="btnUseManual">Usar esta transcripcion</button>
-                    <button class="btn btn-sm btn-outline" id="btnClearManual">Limpiar</button>
+                <div id="manualAdvanced" style="display:none;">
+                    <div style="background:rgba(139,92,246,0.06); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:12px;">
+                        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:8px;">Si tienes el texto (YouTube → ... → Mostrar transcripcion):</p>
+                        <div id="dropZone" class="drop-zone">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <span>Arrastra .txt/.srt/.vtt aqui o <label for="transcriptFile" class="drop-zone-link">elige archivo</label></span>
+                            <input type="file" id="transcriptFile" accept=".txt,.srt,.vtt" hidden>
+                            <span id="fileName" style="font-size:12px; color:var(--gold); margin-top:4px; display:none;"></span>
+                        </div>
+                    </div>
+                    <textarea class="note-editor" id="manualTranscript" placeholder="Pega la transcripcion aqui..." style="min-height:150px;" aria-label="Transcripcion manual"></textarea>
+                    <div style="margin-top:8px; display:flex; gap:8px;">
+                        <button class="btn btn-sm btn-gold" id="btnUseManual">Usar esta transcripcion</button>
+                        <button class="btn btn-sm btn-outline" id="btnClearManual">Limpiar</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -160,18 +159,18 @@
             const manualDiv = document.getElementById('transcriptManual');
             btn.disabled = true;
             btn.textContent = 'Cargando...';
-            content.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>Obteniendo transcripcion...</p><p class="loading-sub">Probando YouTube captions...</p></div>';
+            content.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>Obteniendo transcripcion...</p><p class="loading-sub">Consultando YouTube...</p></div>';
             manualDiv.style.display = 'none';
             let whisperTimer = setTimeout(() => {
                 const sub = content.querySelector('.loading-sub');
-                if (sub) sub.textContent = 'YouTube bloqueo — probando Whisper local (2-3 min)...';
+                if (sub) sub.textContent = 'Aun no hay subtitulos para este video...';
             }, 4000);
 
             try {
                 rawEntries = await getYouTubeTranscript(videoId);
                 clearTimeout(whisperTimer);
                 if (!rawEntries || rawEntries.length === 0) {
-                    content.innerHTML = '<p style="color:var(--text-muted); text-align:center;">No se pudo obtener la transcripcion automaticamente.</p><p style="color:var(--text-muted); font-size:13px; text-align:center; margin-top:8px;">Prueba pegando manualmente o añade <code>cookies.txt</code> para Whisper.</p>';
+                    content.innerHTML = '<p style="color:var(--text-muted); text-align:center;">Transcripcion aun no disponible.</p><p style="color:var(--text-muted); font-size:13px; text-align:center; margin-top:8px;">YouTube la genera en 2-6h. Puedes generar el estudio desde el titulo o volver mas tarde.</p>';
                     manualDiv.style.display = 'block';
                 } else {
                     isManualTranscript = false;
@@ -181,7 +180,7 @@
                 }
             } catch (err) {
                 clearTimeout(whisperTimer);
-                content.innerHTML = '<p style="color:var(--text-muted); text-align:center;">Error al obtener la transcripcion.</p>';
+                content.innerHTML = '<p style="color:var(--text-muted); text-align:center;">Transcripcion aun no disponible.</p>';
                 manualDiv.style.display = 'block';
             }
             btn.disabled = false;
@@ -249,6 +248,13 @@
             fileNameEl.textContent = '';
         });
 
+        // Mostrar panel avanzado manual
+        document.getElementById('linkShowManual').addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('manualAdvanced').style.display = 'block';
+            e.target.style.display = 'none';
+        });
+
         function renderTranscript() {
             if (!rawEntries) return;
             const text = formatTranscript(rawEntries, currentSkip);
@@ -300,7 +306,7 @@
                 // Si no hay transcripcion cargada, intentar obtenerla por detras (como la web original)
                 if (!rawEntries || rawEntries.length === 0) {
                     loading.querySelector('p').textContent = 'Obteniendo transcripcion...';
-                    loading.querySelector('.loading-sub').textContent = 'Si YouTube bloquea, Whisper local tardara 2-3 min';
+                    loading.querySelector('.loading-sub').textContent = '';
                     const fetched = await getYouTubeTranscript(videoId);
                     if (fetched && fetched.length) {
                         rawEntries = fetched;
@@ -313,11 +319,11 @@
                 }
                 const text = rawEntries ? rawEntries.map(e => e.text).join(' ') : '';
                 if (!text) {
-                    showToast('Sin transcripcion — el server intentara Whisper por detras (2-3 min)');
+                    showToast('Sin transcripcion — se generara estudio desde el titulo');
                 }
                 const title = document.getElementById('videoTitle').textContent;
-                loading.querySelector('p').textContent = text ? 'Analizando con IA...' : 'Transcribiendo con Whisper + analizando...';
-                loading.querySelector('.loading-sub').textContent = text ? '' : 'Puede tardar 2-3 min la primera vez (modelo 145MB)';
+                loading.querySelector('p').textContent = 'Analizando con IA...';
+                loading.querySelector('.loading-sub').textContent = text ? '' : 'Sin transcripcion: usando titulo';
                 const response = await generateBiblicalStudy(text, title, videoId);
                 setCachedStudy(videoId, response);
                 loading.style.display = 'none';

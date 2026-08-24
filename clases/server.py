@@ -210,13 +210,15 @@ def get_transcript():
             if attempt == 0:
                 time.sleep(1)
 
-    # Intento 2: Whisper local (yt-dlp + faster-whisper)
-    print(f"Fallback a Whisper para {video_id}...")
-    whisper_text = transcribe_with_whisper(video_id)
-    if whisper_text:
-        return jsonify({"transcript": whisper_text, "source": "whisper"})
+    # Sin captions (video muy nuevo) -> no intentamos Whisper en Fly (lento + timeout)
+    # Whisper queda solo para uso local (ENABLE_WHISPER=1)
+    if os.getenv("ENABLE_WHISPER") == "1":
+        print(f"Fallback a Whisper para {video_id}...")
+        whisper_text = transcribe_with_whisper(video_id)
+        if whisper_text:
+            return jsonify({"transcript": whisper_text, "source": "whisper"})
 
-    return jsonify({"transcript": None, "error": last_error or "No se pudo transcribir. Prueba pegando manualmente o añade cookies.txt"}), 500
+    return jsonify({"transcript": None, "error": last_error or "Transcripcion aun no disponible. YouTube la genera en 2-6h. Prueba mas tarde o genera estudio desde el titulo."}), 500
 
 
 # Compatibilidad: usado por /api/study y /api/quiz cuando no viene transcript
@@ -233,8 +235,9 @@ def _get_transcript_text(video_id):
             return text
     except Exception as e:
         print(f"_get_transcript_text youtube_transcript_api failed: {e}")
-    # Fallback whisper
-    return transcribe_with_whisper(video_id)
+    if os.getenv("ENABLE_WHISPER") == "1":
+        return transcribe_with_whisper(video_id)
+    return None
 
 
 def _call_openrouter(prompt):

@@ -55,22 +55,11 @@ async function fetchYouTubeVideos(maxResults = 50) {
     return videos;
 }
 
-// ===== TRANSCRIPT (hibrido: cliente via corsproxy + server) =====
+// ===== TRANSCRIPT (server via Fly proxy, sin corsproxy) =====
 async function getYouTubeTranscript(videoId) {
-    // 1. Cache local
     const cached = getCachedTranscript(videoId);
     if (cached && Array.isArray(cached) && cached.length) return cached;
 
-    // 2. Intento cliente via corsproxy.io (como la web original) — no depende de IP del server
-    try {
-        const clientEntries = await getYouTubeTranscriptClient(videoId);
-        if (clientEntries && clientEntries.length) {
-            try { setCachedTranscript(videoId, clientEntries); } catch {}
-            return clientEntries;
-        }
-    } catch (e) { console.warn('Client transcript failed:', e.message); }
-
-    // 3. Fallback server (youtube_transcript_api)
     try {
         const res = await fetch(`${API_BASE}/api/transcript?videoId=${videoId}`);
         const data = await res.json();
@@ -81,49 +70,11 @@ async function getYouTubeTranscript(videoId) {
                 return entries;
             }
         }
+        if (data.error && data.error.includes('aun no disponible')) {
+            console.info('Transcripcion aun no disponible (YouTube la genera en 2-6h)');
+        }
     } catch (e) { /* server not available */ }
     return null;
-}
-
-// Metodo cliente identico a la web original (web raiz) — usa corsproxy.io
-async function getYouTubeTranscriptClient(videoId) {
-    const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}`;
-    const res = await fetch(proxyUrl);
-    const html = await res.text();
-
-    const match = html.match(/"captions":\s*(\{.*?"playerCaptionsTracklistRenderer".*?\})\s*,\s*"videoDetails"/s);
-    if (!match) return null;
-
-    const captionsData = JSON.parse(match[1]);
-    const tracks = captionsData?.playerCaptionsTracklistRenderer?.captionTracks;
-    if (!tracks || tracks.length === 0) return null;
-
-    const langTrack = tracks.find(t => t.languageCode === 'es') || tracks[0];
-    let captionUrl = langTrack.baseUrl;
-    // Intentar fetch directo primero, si falla por CORS usar proxy
-    let captionXml;
-    try {
-        const r = await fetch(captionUrl);
-        captionXml = await r.text();
-        if (!captionXml.includes('<text')) throw new Error('no text');
-    } catch {
-        const proxied = `https://corsproxy.io/?url=${encodeURIComponent(captionUrl)}`;
-        const r2 = await fetch(proxied);
-        captionXml = await r2.text();
-    }
-
-    const entries = [];
-    const regex = /<text[^>]*>(.*?)<\/text>/g;
-    let m;
-    let idx = 0;
-    while ((m = regex.exec(captionXml)) !== null) {
-        const startMatch = m[0].match(/start="([\d.]+)"/);
-        const start = startMatch ? parseFloat(startMatch[1]) : idx * 3;
-        const text = m[1].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/<[^>]*>/g, '').trim();
-        if (text) entries.push({ start, text });
-        idx++;
-    }
-    return entries.length ? entries : null;
 }
 
 function parseCaptionXML(xml) {
