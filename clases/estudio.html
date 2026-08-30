@@ -90,9 +90,10 @@
                 <div class="loading"><div class="loading-spinner"></div><p>Analizando con IA...</p><p class="loading-sub">Esto puede tardar 30-60 segundos</p></div>
             </div>
             <div id="studyResults" style="display:none;">
-                <div style="display:flex; gap:8px; margin-bottom:16px;">
+                <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
                     <button class="btn-copy-study" id="btnCopyStudy">Copiar todo</button>
                     <button class="btn btn-sm btn-outline" id="btnStudyPdf" style="font-size:13px;">Descargar PDF</button>
+                    <button class="btn btn-sm btn-outline" id="btnRegenerateStudy" style="font-size:13px;">Regenerar con IA</button>
                 </div>
                 <div class="bible-section" id="bibleSummary"><h3>Resumen</h3><div class="bible-section-content"></div></div>
                 <div class="bible-section" id="bibleMessage"><h3>Mensaje Principal</h3><div class="bible-section-content"></div></div>
@@ -286,16 +287,18 @@
         });
 
         // Bible Study
-        async function startStudy() {
+        async function startStudy(force = false) {
             const loading = document.getElementById('studyLoading');
             const results = document.getElementById('studyResults');
             const error = document.getElementById('studyError');
 
-            const cached = getCachedStudy(videoId);
-            if (cached) {
-                renderStudyResults('studyResults', cached);
-                results.style.display = 'block';
-                return;
+            if (!force) {
+                const cached = getCachedStudy(videoId);
+                if (cached) {
+                    renderStudyResults('studyResults', cached);
+                    results.style.display = 'block';
+                    return;
+                }
             }
 
             loading.style.display = 'block';
@@ -325,7 +328,8 @@
                 loading.querySelector('p').textContent = 'Analizando con IA...';
                 loading.querySelector('.loading-sub').textContent = text ? '' : 'Sin transcripcion: usando titulo';
                 const response = await generateBiblicalStudy(text, title, videoId);
-                setCachedStudy(videoId, response);
+                // Solo cachear estudios REALES (con transcripcion), no los genericos por titulo
+                if (text) setCachedStudy(videoId, response);
                 loading.style.display = 'none';
                 renderStudyResults('studyResults', response);
                 results.style.display = 'block';
@@ -336,8 +340,13 @@
             }
         }
 
-        document.getElementById('btnStartStudy').addEventListener('click', startStudy);
-        document.getElementById('btnRetryStudy').addEventListener('click', startStudy);
+        document.getElementById('btnStartStudy').addEventListener('click', () => startStudy(false));
+        document.getElementById('btnRetryStudy').addEventListener('click', () => startStudy(false));
+        document.getElementById('btnRegenerateStudy').addEventListener('click', () => {
+            try { localStorage.removeItem('academia_study_' + videoId); } catch {}
+            rawEntries = null;
+            startStudy(true);
+        });
 
         document.getElementById('btnCopyStudy').addEventListener('click', () => {
             const results = document.getElementById('studyResults');
