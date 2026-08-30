@@ -55,11 +55,40 @@ async function fetchYouTubeVideos(maxResults = 50) {
     return videos;
 }
 
-// ===== TRANSCRIPT (server via Fly proxy, sin corsproxy) =====
+// ===== TRANSCRIPT (cliente IFrame API → server fallback) =====
+let _ytApiReady = false;
+let _ytApiResolvers = [];
+function _loadYTIframeAPI() {
+    if (window.YT && window.YT.Player) { _ytApiReady = true; _ytApiResolvers.forEach(r => r()); _ytApiResolvers = []; return; }
+    if (window.__ytApiLoading) return;
+    window.__ytApiLoading = true;
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    tag.onload = () => {
+        window.onYouTubeIframeAPIReady = window.onYouTubeIframeAPIReady || function () {};
+    };
+    document.head.appendChild(tag);
+    window.onYouTubeIframeAPIReady = () => {
+        _ytApiReady = true;
+        _ytApiResolvers.forEach(r => r());
+        _ytApiResolvers = [];
+    };
+}
+
 async function getYouTubeTranscript(videoId) {
     const cached = getCachedTranscript(videoId);
     if (cached && Array.isArray(cached) && cached.length) return cached;
 
+    // 1. Cliente: extraer captions desde el navegador del usuario (IP residencial, no bloqueada)
+    try {
+        const entries = await _getTranscriptViaPlayer(videoId);
+        if (entries && entries.length) {
+            try { setCachedTranscript(videoId, entries); } catch {}
+            return entries;
+        }
+    } catch (e) { console.warn('Client transcript fallo:', e.message); }
+
+    // 2. Fallback: server (Fly) via proxy
     try {
         const res = await fetch(`${API_BASE}/api/transcript?videoId=${videoId}`);
         const data = await res.json();
@@ -70,11 +99,61 @@ async function getYouTubeTranscript(videoId) {
                 return entries;
             }
         }
-        if (data.error && data.error.includes('aun no disponible')) {
-            console.info('Transcripcion aun no disponible (YouTube la genera en 2-6h)');
-        }
     } catch (e) { /* server not available */ }
     return null;
+}
+
+function _getTranscriptViaPlayer(videoId) {
+    return new Promise((resolve, reject) => {
+        const ready = new Promise(r => {
+            if (_ytApiReady) return r();
+            _loadYTIframeAPI();
+            _ytApiResolvers.push(r);
+        });
+        const timeout = setTimeout(() => reject(new Error('timeout')), 15000);
+        ready.then(() => {
+            const container = document.createElement('div');
+            container.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:2px;height:2px;';
+            document.body.appendChild(container);
+            let done = false;
+            const finish = (val) => {
+                if (done) return;
+                done = true;
+                clearTimeout(timeout);
+                try { player.destroy(); } catch {}
+                try { container.remove(); } catch {}
+                resolve(val);
+            };
+            const player = new YT.Player(container, {
+                videoId,
+                width: 2, height: 2,
+                playerVars: { controls: 0, autoplay: 0, cc_load_policy: 1 },
+                events: {
+                    onReady: async () => {
+                        try {
+                            const tracklist = player.getOption('captions', 'tracklist');
+                            const tracks = tracklist || [];
+                            if (!tracks.length) { finish(null); return; }
+                            const track = tracks.find(t => t.languageCode === 'es') || tracks[0];
+                            if (!track || !track.baseUrl) { finish(null); return; }
+                            let url = track.baseUrl + '&fmt=json3';
+                            const res = await fetch(url);
+                            if (!res.ok) { finish(null); return; }
+                            const j = await res.json();
+                            const entries = [];
+                            for (const ev of (j.events || [])) {
+                                if (!ev.segs) continue;
+                                const text = ev.segs.map(s => s.utf8 || '').join(' ').trim();
+                                if (text) entries.push({ start: ev.tStartMs ? ev.tStartMs / 1000 : (ev.aAppend ? ev.aAppend / 1000 : 0), text });
+                            }
+                            finish(entries.length ? entries : null);
+                        } catch (e) { finish(null); }
+                    },
+                    onError: () => finish(null)
+                }
+            });
+        });
+    });
 }
 
 function parseCaptionXML(xml) {
