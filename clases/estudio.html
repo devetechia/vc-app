@@ -292,6 +292,17 @@
                 document.querySelectorAll('.studio-panel').forEach(p => p.classList.remove('active'));
                 tab.classList.add('active');
                 document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+                // Auto-show noTranscript panel when switching to study tab
+                if (tab.dataset.tab === 'study') {
+                    const noT = document.getElementById('studyNoTranscript');
+                    const cached = getCachedStudy(videoId);
+                    const hasText = rawEntries && rawEntries.length > 0;
+                    if (noT && !cached && !hasText) {
+                        noT.style.display = 'block';
+                    } else if (noT) {
+                        noT.style.display = 'none';
+                    }
+                }
             });
         });
 
