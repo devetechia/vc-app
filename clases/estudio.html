@@ -89,6 +89,15 @@
             <div id="studyLoading" style="display:none;">
                 <div class="loading"><div class="loading-spinner"></div><p>Analizando con IA...</p><p class="loading-sub">Esto puede tardar 30-60 segundos</p></div>
             </div>
+            <div id="studyNoTranscript" style="display:none; text-align:center; padding:32px 16px;">
+                <div style="background:rgba(255,215,0,0.08); border:1px solid rgba(255,215,0,0.2); border-radius:12px; padding:24px; max-width:400px; margin:0 auto;">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" style="margin-bottom:12px;"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+                    <h3 style="color:var(--gold); margin-bottom:8px; font-size:1.1rem;">Necesitas la transcripcion</h3>
+                    <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:16px;">Para generar un estudio biblico real con versiculos y contexto, primero necesitamos la transcripcion del video.</p>
+                    <button class="btn btn-gold" id="btnLoadTranscriptForStudy">Cargar transcripcion ahora</button>
+                    <p style="color:var(--text-muted); font-size:0.75rem; margin-top:12px;">Esto activara la pestaña Transcripcion y cargara los subtitulos automaticamente.</p>
+                </div>
+            </div>
             <div id="studyResults" style="display:none;">
                 <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
                     <button class="btn-copy-study" id="btnCopyStudy">Copiar todo</button>
@@ -291,6 +300,7 @@
             const loading = document.getElementById('studyLoading');
             const results = document.getElementById('studyResults');
             const error = document.getElementById('studyError');
+            const noTranscript = document.getElementById('studyNoTranscript');
 
             if (!force) {
                 const cached = getCachedStudy(videoId);
@@ -301,34 +311,24 @@
                 }
             }
 
-            loading.style.display = 'block';
+            loading.style.display = 'none';
             results.style.display = 'none';
             error.style.display = 'none';
+            if (noTranscript) noTranscript.style.display = 'none';
 
+            const text = rawEntries ? rawEntries.map(e => e.text).join(' ').trim() : '';
+            if (!text) {
+                loading.style.display = 'none';
+                if (noTranscript) noTranscript.style.display = 'block';
+                return;
+            }
+
+            loading.style.display = 'block';
             try {
-                // Si no hay transcripcion cargada, intentar obtenerla por detras (como la web original)
-                if (!rawEntries || rawEntries.length === 0) {
-                    loading.querySelector('p').textContent = 'Obteniendo transcripcion...';
-                    loading.querySelector('.loading-sub').textContent = '';
-                    const fetched = await getYouTubeTranscript(videoId);
-                    if (fetched && fetched.length) {
-                        rawEntries = fetched;
-                        isManualTranscript = false;
-                        updateSliderState();
-                        document.getElementById('transcriptContent').innerHTML = '';
-                        renderTranscript();
-                        document.getElementById('btnDownloadPdf').style.display = 'inline-flex';
-                    }
-                }
-                const text = rawEntries ? rawEntries.map(e => e.text).join(' ') : '';
-                if (!text) {
-                    showToast('Sin transcripcion — se generara estudio desde el titulo');
-                }
                 const title = document.getElementById('videoTitle').textContent;
                 loading.querySelector('p').textContent = 'Analizando con IA...';
-                loading.querySelector('.loading-sub').textContent = text ? '' : 'Sin transcripcion: usando titulo';
+                loading.querySelector('.loading-sub').textContent = '';
                 const response = await generateBiblicalStudy(text, title, videoId);
-                // Solo cachear estudios REALES (con transcripcion), no los genericos por titulo
                 if (text) setCachedStudy(videoId, response);
                 loading.style.display = 'none';
                 renderStudyResults('studyResults', response);
@@ -340,6 +340,29 @@
             }
         }
 
+        function loadTranscriptThenStudy() {
+            // Switch to transcript tab
+            document.querySelectorAll('.studio-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.studio-panel').forEach(p => p.classList.remove('active'));
+            document.querySelector('[data-tab="transcript"]').classList.add('active');
+            document.getElementById('panel-transcript').classList.add('active');
+            // Auto-click load transcript button
+            document.getElementById('btnLoadTranscript').click();
+            // Poll until transcript loaded, then switch to study and generate
+            const check = setInterval(() => {
+                if (rawEntries && rawEntries.length) {
+                    clearInterval(check);
+                    document.querySelectorAll('.studio-tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.studio-panel').forEach(p => p.classList.remove('active'));
+                    document.querySelector('[data-tab="study"]').classList.add('active');
+                    document.getElementById('panel-study').classList.add('active');
+                    startStudy(true);
+                }
+            }, 500);
+            // Stop after 30s
+            setTimeout(() => clearInterval(check), 30000);
+        }
+
         document.getElementById('btnStartStudy').addEventListener('click', () => startStudy(false));
         document.getElementById('btnRetryStudy').addEventListener('click', () => startStudy(false));
         document.getElementById('btnRegenerateStudy').addEventListener('click', () => {
@@ -347,6 +370,8 @@
             rawEntries = null;
             startStudy(true);
         });
+        const btnLoadForStudy = document.getElementById('btnLoadTranscriptForStudy');
+        if (btnLoadForStudy) btnLoadForStudy.addEventListener('click', loadTranscriptThenStudy);
 
         document.getElementById('btnCopyStudy').addEventListener('click', () => {
             const results = document.getElementById('studyResults');
