@@ -352,14 +352,12 @@
         }
 
         function loadTranscriptThenStudy() {
-            // Switch to transcript tab
             document.querySelectorAll('.studio-tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.studio-panel').forEach(p => p.classList.remove('active'));
             document.querySelector('[data-tab="transcript"]').classList.add('active');
             document.getElementById('panel-transcript').classList.add('active');
-            // Auto-click load transcript button
             document.getElementById('btnLoadTranscript').click();
-            // Poll until transcript loaded, then switch to study and generate
+            let failed = false;
             const check = setInterval(() => {
                 if (rawEntries && rawEntries.length) {
                     clearInterval(check);
@@ -370,8 +368,13 @@
                     startStudy(true);
                 }
             }, 500);
-            // Stop after 30s
-            setTimeout(() => clearInterval(check), 30000);
+            setTimeout(() => {
+                if (!failed && (!rawEntries || !rawEntries.length)) {
+                    failed = true;
+                    clearInterval(check);
+                    showToast('No se pudo cargar la transcripcion automaticamente. Pegala manualmente o intenta mas tarde.');
+                }
+            }, 25000);
         }
 
         document.getElementById('btnStartStudy').addEventListener('click', () => startStudy(false));

@@ -110,7 +110,7 @@ function _getTranscriptViaPlayer(videoId) {
             _loadYTIframeAPI();
             _ytApiResolvers.push(r);
         });
-        const timeout = setTimeout(() => reject(new Error('timeout')), 15000);
+        const timeout = setTimeout(() => reject(new Error('timeout')), 20000);
         ready.then(() => {
             const container = document.createElement('div');
             container.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:2px;height:2px;';
@@ -130,24 +130,36 @@ function _getTranscriptViaPlayer(videoId) {
                 playerVars: { controls: 0, autoplay: 0, cc_load_policy: 1 },
                 events: {
                     onReady: async () => {
-                        try {
-                            const tracklist = player.getOption('captions', 'tracklist');
-                            const tracks = tracklist || [];
-                            if (!tracks.length) { finish(null); return; }
-                            const track = tracks.find(t => t.languageCode === 'es') || tracks[0];
-                            if (!track || !track.baseUrl) { finish(null); return; }
-                            let url = track.baseUrl + '&fmt=json3';
-                            const res = await fetch(url);
-                            if (!res.ok) { finish(null); return; }
-                            const j = await res.json();
-                            const entries = [];
-                            for (const ev of (j.events || [])) {
-                                if (!ev.segs) continue;
-                                const text = ev.segs.map(s => s.utf8 || '').join(' ').trim();
-                                if (text) entries.push({ start: ev.tStartMs ? ev.tStartMs / 1000 : (ev.aAppend ? ev.aAppend / 1000 : 0), text });
-                            }
-                            finish(entries.length ? entries : null);
-                        } catch (e) { finish(null); }
+                        // Wait for captions to load (they may not be ready at onReady)
+                        const tryGetCaptions = async (attempt) => {
+                            try {
+                                const tracklist = player.getOption('captions', 'tracklist');
+                                const tracks = tracklist || [];
+                                if (tracks.length > 0) {
+                                    const track = tracks.find(t => t.languageCode === 'es') || tracks[0];
+                                    if (track && track.baseUrl) {
+                                        const res = await fetch(track.baseUrl + '&fmt=json3');
+                                        if (res.ok) {
+                                            const j = await res.json();
+                                            const entries = [];
+                                            for (const ev of (j.events || [])) {
+                                                if (!ev.segs) continue;
+                                                const text = ev.segs.map(s => s.utf8 || '').join(' ').trim();
+                                                if (text) entries.push({ start: ev.tStartMs ? ev.tStartMs / 1000 : (ev.aAppend ? ev.aAppend / 1000 : 0), text });
+                                            }
+                                            if (entries.length) { finish(entries); return; }
+                                        }
+                                    }
+                                }
+                                // Retry with delay (captions may still be loading)
+                                if (attempt < 3) {
+                                    setTimeout(() => tryGetCaptions(attempt + 1), 2000);
+                                } else {
+                                    finish(null);
+                                }
+                            } catch (e) { finish(null); }
+                        };
+                        tryGetCaptions(0);
                     },
                     onError: () => finish(null)
                 }
