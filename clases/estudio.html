@@ -58,24 +58,33 @@
             </div>
             <div class="transcript-manual" id="transcriptManual" style="display:none; margin-top:16px;">
                 <div style="background:rgba(255,215,0,0.08); border:1px solid rgba(255,215,0,0.2); border-radius:8px; padding:16px; margin-bottom:12px;">
-                    <p style="color:var(--gold); font-weight:600; margin-bottom:8px;">Transcripcion aun no disponible</p>
-                    <p style="color:var(--text-muted); font-size:0.85rem; margin:0;">YouTube esta generando los subtitulos de este video (tarda 2-6h desde la publicacion). Puedes generar el estudio desde el titulo o volver mas tarde para la transcripcion completa.</p>
-                    <p style="color:var(--text-muted); font-size:0.85rem; margin-top:12px;"><a href="#" id="linkShowManual" style="color:var(--purple-light); text-decoration:underline;">Opcion avanzada: pegar transcripcion manual</a></p>
-                </div>
-                <div id="manualAdvanced" style="display:none;">
-                    <div style="background:rgba(139,92,246,0.06); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:12px;">
-                        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:8px;">Si tienes el texto (YouTube → ... → Mostrar transcripcion):</p>
-                        <div id="dropZone" class="drop-zone">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                            <span>Arrastra .txt/.srt/.vtt aqui o <label for="transcriptFile" class="drop-zone-link">elige archivo</label></span>
-                            <input type="file" id="transcriptFile" accept=".txt,.srt,.vtt" hidden>
-                            <span id="fileName" style="font-size:12px; color:var(--gold); margin-top:4px; display:none;"></span>
+                    <p style="color:var(--gold); font-weight:600; margin-bottom:8px;">Transcripcion no disponible automaticamente</p>
+                    <p style="color:var(--text-muted); font-size:0.85rem; margin:0 0 8px;">YouTube requiere iniciar sesion para acceder a las transcripciones desde aplicaciones externas.</p>
+                    <details style="margin-top:8px;">
+                        <summary style="color:var(--purple-light); cursor:pointer; font-size:0.85rem;">Como copiar la transcripcion de YouTube (paso a paso)</summary>
+                        <ol style="color:var(--text-muted); font-size:0.83rem; margin:8px 0 0 16px; line-height:1.6;">
+                            <li>Abre el video en <a href="#" id="linkOpenYT" target="_blank" style="color:var(--purple-light);">YouTube</a></li>
+                            <li>Click en <b>... (Mas)</b> debajo del video</li>
+                            <li>Click en <b>Mostrar transcripcion</b></li>
+                            <li>Selecciona todo el texto (Ctrl+A) y copialo (Ctrl+C)</li>
+                            <li>Pegalo aqui abajo</li>
+                        </ol>
+                    </details>
+                    <div style="margin-top:12px;">
+                        <div style="background:rgba(139,92,246,0.06); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:12px;">
+                            <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:8px;">Pega la transcripcion copiada de YouTube aqui:</p>
+                            <div id="dropZone" class="drop-zone">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                <span>Arrastra .txt/.srt/.vtt aqui o <label for="transcriptFile" class="drop-zone-link">elige archivo</label></span>
+                                <input type="file" id="transcriptFile" accept=".txt,.srt,.vtt" hidden>
+                                <span id="fileName" style="font-size:12px; color:var(--gold); margin-top:4px; display:none;"></span>
+                            </div>
                         </div>
-                    </div>
-                    <textarea class="note-editor" id="manualTranscript" placeholder="Pega la transcripcion aqui..." style="min-height:150px;" aria-label="Transcripcion manual"></textarea>
-                    <div style="margin-top:8px; display:flex; gap:8px;">
-                        <button class="btn btn-sm btn-gold" id="btnUseManual">Usar esta transcripcion</button>
-                        <button class="btn btn-sm btn-outline" id="btnClearManual">Limpiar</button>
+                        <textarea class="note-editor" id="manualTranscript" placeholder="Pega la transcripcion aqui..." style="min-height:150px;" aria-label="Transcripcion manual"></textarea>
+                        <div style="margin-top:8px; display:flex; gap:8px;">
+                            <button class="btn btn-sm btn-gold" id="btnUseManual">Usar esta transcripcion</button>
+                            <button class="btn btn-sm btn-outline" id="btnClearManual">Limpiar</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -258,12 +267,8 @@
             fileNameEl.textContent = '';
         });
 
-        // Mostrar panel avanzado manual
-        document.getElementById('linkShowManual').addEventListener('click', (e) => {
-            e.preventDefault();
-            document.getElementById('manualAdvanced').style.display = 'block';
-            e.target.style.display = 'none';
-        });
+        // Set YouTube link
+        document.getElementById('linkOpenYT').href = `https://www.youtube.com/watch?v=${videoId}`;
 
         function renderTranscript() {
             if (!rawEntries) return;
