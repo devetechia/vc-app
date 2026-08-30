@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>YouTube Transcript Extractor</title>
+    <style>
+        body { background: #0d1117; color: #c9d1d9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 40px; max-width: 500px; text-align: center; }
+        h1 { color: #ffd700; margin-bottom: 8px; font-size: 1.5rem; }
+        p { color: #8b949e; font-size: 0.9rem; line-height: 1.6; }
+        .bookmark-btn { display: inline-block; background: linear-gradient(135deg, #ffd700, #ffaa00); color: #000; font-weight: 700; font-size: 16px; padding: 14px 32px; border-radius: 8px; text-decoration: none; cursor: grab; margin: 20px 0; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 15px rgba(255,215,0,0.3); }
+        .bookmark-btn:hover { transform: scale(1.05); box-shadow: 0 6px 25px rgba(255,215,0,0.5); }
+        .bookmark-btn:active { cursor: grabbing; }
+        .steps { text-align: left; margin-top: 24px; background: #0d1117; border-radius: 8px; padding: 16px; }
+        .steps li { color: #8b949e; font-size: 0.85rem; margin-bottom: 8px; line-height: 1.5; }
+        .steps b { color: #c9d1d9; }
+        .step-num { color: #ffd700; font-weight: bold; }
+        code { background: #1f2937; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; color: #ffd700; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>YouTube Transcript Extractor</h1>
+        <p>Arrastra el boton a tu barra de marcadores</p>
+
+        <a class="bookmark-btn" id="bookmarkLink" href="#">Extract Transcript</a>
+
+        <div class="steps">
+            <ol>
+                <li><span class="step-num">1.</span> <b>Arrastra</b> el boton dorado de arriba a tu barra de marcadores (bookmarks bar)</li>
+                <li><span class="step-num">2.</span> Abre cualquier video en <b>YouTube</b></li>
+                <li><span class="step-num">3.</span> Haz click en el boton <b>"Extract Transcript"</b> en tu barra de marcadores</li>
+                <li><span class="step-num">4.</span> Se copiara la transcripcion al portapapeles automaticamente</li>
+                <li><span class="step-num">5.</span> Vuelve a la academia y pega con <code>Ctrl+V</code></li>
+            </ol>
+        </div>
+
+        <p style="margin-top:20px; font-size:0.8rem; color:#484f58;">Funciona desde tu navegador con tu IP residencial. No necesita login.</p>
+    </div>
+
+    <script>
+        const js = `javascript:void(function(){if(!location.href.includes("youtube.com/watch")){alert("Abre un video de YouTube primero");return;}const v=new URLSearchParams(location.search).get("v");if(!v){alert("No se detecto ID de video");return;}const d=document.createElement("div");d.id="yte-box";d.style.cssText="position:fixed;top:20px;right:20px;z-index:999999;background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:20px;color:#fff;font-family:Arial,sans-serif;font-size:14px;box-shadow:0 8px 32px rgba(0,0,0,0.6);max-width:380px;min-width:280px;";document.body.appendChild(d);d.innerHTML='<div style="color:#ffd700;font-weight:bold;font-size:15px;margin-bottom:10px;">YouTube Transcript Extractor</div><div id="yte-s">Loading...</div>';const s=document.getElementById("yte-s");function ft(t){const m=Math.floor(t/60);const sc=Math.floor(t%60);return(m<10?"0":"")+m+":"+(sc<10?"0":"")+sc;}async function run(){try{s.textContent="Fetching video page...";const r=await fetch("https://www.youtube.com/watch?v="+v);const h=await r.text();const m=h.match(/ytInitialPlayerResponse\\s*=\\s*(\\{.+?\\});/);if(!m){s.textContent="No player data found";return;}const p=JSON.parse(m[1]);const ct=p.captions?.playerCaptionsTracklistRenderer?.captionTracks||[];if(!ct.length){s.textContent="No captions for this video";return;}const tr=ct.find(t=>t.languageCode?.startsWith("es"))||ct[0];s.textContent="Downloading captions ("+tr.languageCode+")...";const cr=await fetch(tr.baseUrl+"&fmt=json3");if(!cr.ok){s.textContent="Download failed: "+cr.status;return;}const cj=await cr.json();const en=[];for(const ev of cj.events||[]){if(!ev.segs)continue;const tx=ev.segs.map(x=>x.utf8||"").join(" ").trim();if(tx)en.push({s:ev.tStartMs?ev.tStartMs/1000:0,t:tx});}if(!en.length){s.textContent="No text found";return;}const txt=en.map(e=>"["+ft(e.s)+"] "+e.t).join("\\n");await navigator.clipboard.writeText(txt);s.innerHTML="<div style='color:#4caf50;font-weight:bold;font-size:15px;'>Transcript copied!</div><div style='margin-top:8px;color:#aaa;font-size:13px;'>"+en.length+" lines | "+txt.length+" characters</div><div style='margin-top:6px;color:#666;font-size:12px;'>Paste in the academy with Ctrl+V</div><button id="yte-copy" style='margin-top:10px;background:#ffd700;color:#000;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:bold;'>Copy again</button>';document.getElementById("yte-copy").onclick=async()=>{await navigator.clipboard.writeText(txt);document.getElementById("yte-copy").textContent="Copied!";};}catch(e){s.textContent="Error: "+e.message;}}run();}())`;
+        document.getElementById('bookmarkLink').href = js;
+    </script>
+</body>
+</html>

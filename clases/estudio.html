@@ -137,6 +137,7 @@
     <footer class="footer">
         <div class="container">
             <p>Academia Biblica - Iglesia Vida Cristiana 2026</p>
+            <p style="margin-top:4px;"><a href="transcript-extractor.html" target="_blank" style="color:var(--gold); text-decoration:none; font-size:12px;">YouTube Transcript Extractor</a> - Instala el boton en tu navegador para copiar transcripciones</p>
         </div>
     </footer>
 
@@ -235,6 +236,16 @@
             // Re-render to show with disabled slider hint
             setTimeout(renderTranscript, 50);
             showToast('Transcripcion guardada');
+        });
+
+        // Auto-detect paste with transcript content (from bookmarklet or YouTube)
+        document.getElementById('manualTranscript').addEventListener('paste', (e) => {
+            setTimeout(() => {
+                const text = e.target.value.trim();
+                if (text.length > 50 && text.includes('[')) {
+                    document.getElementById('btnUseManual').click();
+                }
+            }, 100);
         });
 
         // File upload + drag&drop
