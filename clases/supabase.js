@@ -7,9 +7,8 @@ let _onAuthChange = [];
 
 function getSupabase() {
     if (_supabaseClient) return _supabaseClient;
-    const createFn = window._supabaseCreateClient;
-    if (!createFn) return null;
-    _supabaseClient = createFn(SUPABASE_URL, SUPABASE_ANON);
+    if (!window.supabase) return null;
+    _supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
     _supabaseClient.auth.onAuthStateChange((event, session) => {
         _currentUser = session?.user || null;
         _onAuthChange.forEach(fn => fn(_currentUser, event));
