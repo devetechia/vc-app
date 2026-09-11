@@ -707,13 +707,7 @@ if (typeof document !== 'undefined') {
 }
 
 function initServiceWorker() {
-    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && typeof window !== 'undefined') {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js')
-                .then(reg => console.log('[Academia] Service Worker registrado con alcance:', reg.scope))
-                .catch(err => console.warn('[Academia] Error al registrar Service Worker:', err));
-        });
-    }
+    // Service worker disabled for GitHub Pages subfolder deployment
 }
 
 let _toastQueue = [];
