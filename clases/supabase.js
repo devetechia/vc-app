@@ -12,8 +12,36 @@ function getSupabase() {
     _supabaseClient.auth.onAuthStateChange((event, session) => {
         _currentUser = session?.user || null;
         _onAuthChange.forEach(fn => fn(_currentUser, event));
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
     });
+    handleHashSession();
     return _supabaseClient;
+}
+
+function handleHashSession() {
+    const hash = window.location.hash;
+    if (!hash || !hash.includes('access_token')) return;
+    const params = new URLSearchParams(hash.substring(1));
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    if (!accessToken) return;
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    sb.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken || '',
+    }).then(({ data, error }) => {
+        if (error) {
+            console.error('Session restore error:', error);
+        } else {
+            _currentUser = data?.session?.user || null;
+            _onAuthChange.forEach(fn => fn(_currentUser, 'SIGNED_IN'));
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+            alert('Sesion iniciada correctamente. Hola ' + (_currentUser?.email || ''));
+            window.location.href = 'index.html';
+        }
+    });
 }
 
 function onAuthChange(fn) {
