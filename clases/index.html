@@ -12,6 +12,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="logos/logo vc.png">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
     <nav class="navbar" id="navbar">
@@ -27,6 +28,7 @@
                 <li><a href="predicaciones.html" class="nav-link">Predicaciones</a></li>
                 <li><a href="tests.html" class="nav-link">Tests</a></li>
                 <li><a href="notas.html" class="nav-link">Mis Apuntes</a></li>
+                <li id="authNavItem"><a href="#" class="nav-link" id="authBtn" style="color:var(--gold); font-weight:600;">Iniciar sesion</a></li>
             </ul>
         </div>
     </nav>
@@ -133,9 +135,12 @@
         </div>
     </footer>
 
+    <script src="supabase.js"></script>
+    <script src="auth.js"></script>
     <script src="script.js?v=2.3.0"></script>
     <script>
         initNavbar();
+        
         window.addEventListener('scroll', () => {
             document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 50);
         });

@@ -6,3 +6,5 @@ www.youtube.com_cookies*.txt
 *.log
 .DS_Store
 Thumbs.db
+*credentials*
+*token*

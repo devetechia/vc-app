@@ -503,20 +503,52 @@ function saveNote(videoId, note, title = '') {
         date: new Date().toISOString()
     };
     setStorage('academia_notes', n);
+    if (typeof isLoggedIn === 'function' && isLoggedIn()) { saveNoteToDB(videoId, note).catch(()=>{}); }
 }
-function deleteNote(videoId) { const n = getNotes(); delete n[videoId]; setStorage('academia_notes', n); }
+function deleteNote(videoId) { const n = getNotes(); delete n[videoId]; setStorage('academia_notes', n); if (typeof isLoggedIn === 'function' && isLoggedIn()) { deleteNoteFromDB(videoId).catch(()=>{}); } }
 
 function getQuizHistory() { return getStorage('academia_quizzes') || []; }
 function saveQuizResult(result) { const q = getQuizHistory(); q.unshift(result); setStorage('academia_quizzes', q.slice(0, 50)); }
 
+// ===== DATA LAYER: Supabase (logged in) or localStorage (guest) =====
 function getCachedStudy(videoId) { return getStorage('academia_study_' + videoId); }
-function setCachedStudy(videoId, data) { setStorage('academia_study_' + videoId, data); }
+function setCachedStudy(videoId, data) { setStorage('academia_study_' + videoId, data); if (typeof isLoggedIn === 'function' && isLoggedIn()) { saveStudyToDB(videoId, '', data).catch(()=>{}); } }
 
 function getCachedQuiz(videoId) { return getStorage('academia_quiz_' + videoId); }
 function setCachedQuiz(videoId, data) { setStorage('academia_quiz_' + videoId, data); }
 
 function getCachedTranscript(videoId) { return getStorage('academia_transcript_' + videoId); }
-function setCachedTranscript(videoId, data) { setStorage('academia_transcript_' + videoId, data); }
+function setCachedTranscript(videoId, data) { setStorage('academia_transcript_' + videoId, data); if (typeof isLoggedIn === 'function' && isLoggedIn()) { saveTranscriptToDB(videoId, JSON.stringify(data), 'auto').catch(()=>{}); } }
+
+// Sync localStorage to Supabase on login
+onAuthChange(async (user) => {
+    if (!user) return;
+    try {
+        // Sync notes
+        const localNotes = getNotes();
+        for (const [vid, note] of Object.entries(localNotes)) {
+            if (note && note.text) await saveNoteToDB(vid, note.text).catch(()=>{});
+        }
+        // Sync studies
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('academia_study_')) {
+                const vid = key.replace('academia_study_', '');
+                const data = getStorage(key);
+                if (data) await saveStudyToDB(vid, '', data).catch(()=>{});
+            }
+        }
+        // Sync transcripts
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('academia_transcript_')) {
+                const vid = key.replace('academia_transcript_', '');
+                const data = getStorage(key);
+                if (data) await saveTranscriptToDB(vid, JSON.stringify(data), 'auto').catch(()=>{});
+            }
+        }
+    } catch (e) { console.warn('Sync to Supabase failed:', e); }
+});
 
 // ===== PDF EXPORT (singleton loader, premium) =====
 let _jspdfLoading = null;
