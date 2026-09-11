@@ -4,16 +4,18 @@ echo ========================================
 echo  Academia Biblica - Vida Cristiana
 echo ========================================
 echo.
-echo Iniciando servidores...
+echo Iniciando servidor...
 echo.
 
-start "API - Vida Cristiana (5000)" python server.py
-start "Academia - http://localhost:8001" python -m http.server 8001
+start "Academia Biblica (Puerto 5000)" python server.py
+timeout /t 2 >nul
+start http://localhost:5000
 
-echo API:      http://localhost:5000/api/health
-echo Academia: http://localhost:8001
 echo.
-echo No cierres las dos ventanas negras mientras uses la academia.
-echo Para detener, cierra esas ventanas o ejecuta: taskkill /F /IM python.exe
+echo Academia abierta en: http://localhost:5000
+echo API Healthcheck en:  http://localhost:5000/api/health
+echo.
+echo Para detener, cierra la ventana del servidor o ejecuta:
+echo taskkill /F /IM python.exe
 echo.
 pause

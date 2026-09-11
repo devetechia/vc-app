@@ -1,0 +1,26 @@
+{
+  "name": "Academia Bíblica - Vida Cristiana",
+  "short_name": "Academia Bíblica",
+  "description": "Estudia la Palabra de Dios a través de las predicaciones. Transcripciones, análisis con IA, tests y apuntes personales.",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a0a0f",
+  "theme_color": "#0a0a0f",
+  "lang": "es-ES",
+  "icons": [
+    {
+      "src": "logos/logo vc.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logos/logo vc.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

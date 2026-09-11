@@ -1,29 +1,121 @@
 // ===== CONFIG =====
 // Cambia FLY_API_URL por tu URL real de Fly.io tras `fly deploy`
 const FLY_API_URL = 'https://academia-biblica-vc.fly.dev';
-const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+const API_BASE = (typeof location !== 'undefined' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:' || !location.hostname))
     ? 'http://localhost:5000'
     : FLY_API_URL;
 const TRANSCRIPT_SKIP_MINUTES = 20;
 const VIDEO_CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
-const VIDEO_CACHE_KEY = 'academia_videos_cache';
+const VIDEO_CACHE_KEY = 'academia_videos_cache_v6';
+
+// Limpiar caches heredados antiguos
+try {
+    localStorage.removeItem('academia_videos_cache');
+    localStorage.removeItem('academia_videos_cache_v2');
+    localStorage.removeItem('academia_videos_cache_v3');
+    localStorage.removeItem('academia_videos_cache_v4');
+    localStorage.removeItem('academia_videos_cache_v5');
+} catch {}
+
+const SPANISH_MONTHS = {
+    ene: 1, enero: 1, feb: 2, febrero: 2, mar: 3, marzo: 3, abr: 4, abril: 4,
+    may: 5, mayo: 5, jun: 6, junio: 6, jul: 7, julio: 7, ago: 8, agosto: 8,
+    sep: 9, sept: 9, septiembre: 9, oct: 10, octubre: 10, nov: 11, noviembre: 11, dic: 12, diciembre: 12
+};
+
+function deduplicateVideos(list) {
+    if (!Array.isArray(list)) return [];
+    const seenIds = new Set();
+    const seenTitles = new Set();
+    return list.filter(item => {
+        if (!item || !item.id) return false;
+        if (seenIds.has(item.id)) return false;
+        seenIds.add(item.id);
+        const norm = (item.title || '').toLowerCase().replace(/[\s|Il\-_:]+/g, ' ').trim();
+        if (norm && seenTitles.has(norm)) return false;
+        if (norm) seenTitles.add(norm);
+        return true;
+    });
+}
+
+function parseAnyDate(str) {
+    if (!str) return null;
+    let d = new Date(str);
+    if (!isNaN(d.getTime())) return d;
+    const m = String(str).match(/(\d{1,2})\s+([a-záéíóúñ]+)\.?\s+(\d{4})/i);
+    if (m) {
+        const monKey = m[2].toLowerCase().replace('.', '').slice(0, 4);
+        const mon = SPANISH_MONTHS[monKey] || SPANISH_MONTHS[monKey.slice(0, 3)];
+        if (mon) {
+            return new Date(parseInt(m[3], 10), mon - 1, parseInt(m[1], 10));
+        }
+    }
+    return null;
+}
+
+function normalizeVideoItem(item) {
+    if (!item) return null;
+    let rawDate = item.rawDate || item.date || '';
+    let d = parseAnyDate(rawDate);
+    let year = item.year || (d ? d.getFullYear() : null);
+    let month = item.month || (d ? d.getMonth() + 1 : null);
+    let dateStr = item.date;
+    if (!dateStr && d && !isNaN(d.getTime())) {
+        dateStr = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+    let preacher = item.preacher || extractPreacher(item.title || '');
+
+    return {
+        id: item.id,
+        title: item.title || '',
+        thumbnail: item.thumbnail || '',
+        rawDate: d ? d.toISOString() : (item.rawDate || ''),
+        year: year,
+        month: month,
+        date: dateStr || '',
+        preacher: preacher,
+        description: item.description || ''
+    };
+}
 
 // ===== YOUTUBE API (via server proxy, con cache) =====
-async function fetchYouTubeVideos(maxResults = 50) {
-    // Intentar cache
-    try {
-        const cached = JSON.parse(localStorage.getItem(VIDEO_CACHE_KEY));
-        if (cached && cached.timestamp && (Date.now() - cached.timestamp < VIDEO_CACHE_TTL_MS)) {
-            const items = cached.items || [];
-            // Si pide menos que lo cacheado, slice
-            if (items.length >= maxResults) return items.slice(0, maxResults);
-            // Si pide más, seguir a fetch pero devolver cache mientras tanto no — mejor fetch
-            if (items.length > 0 && maxResults <= 50) return items.slice(0, maxResults);
+async function fetchYouTubeVideos(maxResults = 50, pageToken = '') {
+    // Intentar cache (solo para la primera página, sin pageToken)
+    if (!pageToken) {
+        try {
+            const raw = localStorage.getItem(VIDEO_CACHE_KEY);
+            if (raw) {
+                const cached = JSON.parse(raw);
+                if (cached && cached.timestamp && (Date.now() - cached.timestamp < VIDEO_CACHE_TTL_MS)) {
+                    const rawItems = Array.isArray(cached.items) ? cached.items : [];
+                    const items = deduplicateVideos(rawItems.map(normalizeVideoItem).filter(Boolean));
+                    if (items.length >= maxResults) {
+                        return { items: items.slice(0, maxResults), nextPageToken: '' };
+                    }
+                    if (items.length > 0 && maxResults <= 50) {
+                        return { items: items.slice(0, maxResults), nextPageToken: '' };
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[Academia] Cache corrupto, limpiando:', e);
+            try { localStorage.removeItem(VIDEO_CACHE_KEY); } catch {}
         }
-    } catch {}
+    }
 
-    const url = `${API_BASE}/api/videos?maxResults=${maxResults}`;
-    const res = await fetch(url);
+    const url = `${API_BASE}/api/videos?maxResults=${maxResults}${pageToken ? `&pageToken=${pageToken}` : ''}`;
+    console.log('[Academia] Fetching videos:', url);
+    let res;
+    try {
+        res = await fetch(url);
+    } catch (networkErr) {
+        console.error('[Academia] Network error fetching videos:', networkErr);
+        throw new Error('No se pudo conectar con el servidor. Verifica que esté corriendo en localhost:5000.');
+    }
+    if (!res.ok) {
+        console.error('[Academia] HTTP error', res.status, res.statusText);
+        throw new Error(`Servidor respondió HTTP ${res.status}: ${res.statusText}`);
+    }
     const data = await res.json();
 
     if (data.error === 'quotaExceeded' || res.status === 429) {
@@ -32,7 +124,8 @@ async function fetchYouTubeVideos(maxResults = 50) {
             const cached = JSON.parse(localStorage.getItem(VIDEO_CACHE_KEY));
             if (cached && cached.items && cached.items.length) {
                 console.warn('YouTube quota exceeded, usando cache expirado');
-                return cached.items.slice(0, maxResults);
+                const dedupedCached = deduplicateVideos(cached.items);
+                return { items: dedupedCached.slice(0, maxResults), nextPageToken: '' };
             }
         } catch {}
         throw new Error('quotaExceeded');
@@ -40,19 +133,35 @@ async function fetchYouTubeVideos(maxResults = 50) {
     if (data.error) throw new Error(data.error);
     if (!data.items) throw new Error('No se pudieron cargar videos');
 
-    const videos = data.items.map(item => ({
-        id: item.id,
-        title: item.title,
-        thumbnail: item.thumbnail,
-        date: item.date ? new Date(item.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '',
-        description: item.description || ''
-    }));
+    const mappedVideos = data.items.map(item => {
+        const rawDate = item.date || '';
+        const d = rawDate ? new Date(rawDate) : null;
+        return {
+            id: item.id,
+            title: item.title,
+            thumbnail: item.thumbnail,
+            rawDate: rawDate,
+            year: d && !isNaN(d.getFullYear()) ? d.getFullYear() : null,
+            month: d && !isNaN(d.getMonth()) ? d.getMonth() + 1 : null,
+            date: d && !isNaN(d.getTime()) ? d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '',
+            preacher: extractPreacher(item.title),
+            description: item.description || ''
+        };
+    });
 
-    // Guardar cache
-    try {
-        localStorage.setItem(VIDEO_CACHE_KEY, JSON.stringify({ timestamp: Date.now(), items: videos }));
-    } catch {}
-    return videos;
+    const videos = deduplicateVideos(mappedVideos);
+
+    // Guardar cache (solo para la primera página)
+    if (!pageToken) {
+        try {
+            localStorage.setItem(VIDEO_CACHE_KEY, JSON.stringify({ timestamp: Date.now(), items: videos }));
+        } catch {}
+    }
+
+    return { 
+        items: videos, 
+        nextPageToken: data.nextPageToken || '' 
+    };
 }
 
 // ===== TRANSCRIPT (cliente IFrame API → server fallback) =====
@@ -79,7 +188,29 @@ async function getYouTubeTranscript(videoId) {
     const cached = getCachedTranscript(videoId);
     if (cached && Array.isArray(cached) && cached.length) return cached;
 
-    // 1. Cliente: extraer captions desde el navegador del usuario (IP residencial, no bloqueada)
+    // 1. Servidor Backend primero (rápido, con timestamps exactos vía youtube_transcript_api)
+    try {
+        const res = await fetch(`${API_BASE}/api/transcript?videoId=${videoId}`);
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data.entries) && data.entries.length) {
+                try { setCachedTranscript(videoId, data.entries); } catch {}
+                return data.entries;
+            }
+            if (data.transcript) {
+                const lines = data.transcript.split('\n').filter(l => l.trim());
+                const entries = lines.map((text, i) => ({ start: i * 3, text: text.trim() }));
+                if (entries.length) {
+                    try { setCachedTranscript(videoId, entries); } catch {}
+                    return entries;
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('Server transcript error:', e);
+    }
+
+    // 2. Fallback: extraer captions desde el navegador del usuario
     try {
         const entries = await _getTranscriptViaPlayer(videoId);
         if (entries && entries.length) {
@@ -88,18 +219,6 @@ async function getYouTubeTranscript(videoId) {
         }
     } catch (e) { console.warn('Client transcript fallo:', e.message); }
 
-    // 2. Fallback: server (Fly) via proxy
-    try {
-        const res = await fetch(`${API_BASE}/api/transcript?videoId=${videoId}`);
-        const data = await res.json();
-        if (data.transcript) {
-            const entries = data.transcript.split('\n').filter(l => l.trim()).map((text, i) => ({ start: i * 3, text: text.trim() }));
-            if (entries.length) {
-                try { setCachedTranscript(videoId, entries); } catch {}
-                return entries;
-            }
-        }
-    } catch (e) { /* server not available */ }
     return null;
 }
 
@@ -303,6 +422,16 @@ function parseAIResponse(text) {
     return sections;
 }
 
+
+// ===== DEBOUNCE =====
+function debounce(fn, delay) {
+    let timer;
+    return function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
 function escapeHtml(str) {
     return str
         .replace(/&/g, '&amp;')
@@ -312,12 +441,40 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
+/**
+ * Convierte markdown básico a HTML seguro.
+ * Orden correcto: 1) markdown→HTML, 2) sanitizar con DOMPurify.
+ * ADR-003: Mitigación de XSS.
+ */
 function renderMarkdown(text) {
-    const escaped = escapeHtml(text);
-    return escaped
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    if (!text) return '';
+    // 1) Convertir markdown a HTML (solo reemplazos seguros, NO inyectar HTML crudo)
+    const html = text
+        // Encabezados
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        // Listas
+        .replace(/^\s*[-*]\s+(.+)$/gm, '<li>$1</li>')
+        // Negrita e itálica (escapar primero para no confundir con markdown del usuario)
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        // Código inline
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // Saltos de línea
+        .replace(/\n\n/g, '</p><p>')
         .replace(/\n/g, '<br>');
+    
+    // 2) Sanitizar con DOMPurify (permite markdown seguro)
+    if (typeof DOMPurify !== 'undefined') {
+        return DOMPurify.sanitize(html, {
+            ALLOWED_TAGS: ['h1','h2','h3','h4','p','br','strong','em','code','li','ul','ol','blockquote'],
+            ALLOWED_ATTR: []
+        });
+    }
+    // Fallback si DOMPurify no carga (menos seguro pero funcional)
+    console.warn('DOMPurify no disponible, usando escape fallback');
+    return escapeHtml(html);
 }
 
 // ===== LOCALSTORAGE =====
@@ -336,7 +493,17 @@ function setStorage(key, value) {
 }
 
 function getNotes() { return getStorage('academia_notes') || {}; }
-function saveNote(videoId, note) { const n = getNotes(); n[videoId] = { text: note, date: new Date().toISOString() }; setStorage('academia_notes', n); }
+function saveNote(videoId, note, title = '') {
+    const n = getNotes();
+    const existing = n[videoId] || {};
+    const noteTitle = title || existing.title || (typeof document !== 'undefined' ? document.getElementById('videoTitle')?.textContent : '') || '';
+    n[videoId] = {
+        text: note,
+        title: (noteTitle && noteTitle !== 'Cargando predicacion...' && noteTitle !== 'Predicacion no encontrada') ? noteTitle : (existing.title || ''),
+        date: new Date().toISOString()
+    };
+    setStorage('academia_notes', n);
+}
 function deleteNote(videoId) { const n = getNotes(); delete n[videoId]; setStorage('academia_notes', n); }
 
 function getQuizHistory() { return getStorage('academia_quizzes') || []; }
@@ -499,6 +666,24 @@ function getUrlParam(name) {
     return new URLSearchParams(window.location.search).get(name);
 }
 
+// Inicializar navbar y Service Worker al cargar página
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', () => {
+        initNavbar();
+        initServiceWorker();
+    });
+}
+
+function initServiceWorker() {
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && typeof window !== 'undefined') {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('[Academia] Service Worker registrado con alcance:', reg.scope))
+                .catch(err => console.warn('[Academia] Error al registrar Service Worker:', err));
+        });
+    }
+}
+
 let _toastQueue = [];
 let _toastShowing = false;
 function showToast(message) {
@@ -556,3 +741,528 @@ function renderStudyResults(containerId, aiResponse) {
         }
     }
 }
+
+// ===== VIDEO PROGRESS HELPERS =====
+function getVideoProgress(videoId) {
+    const key = `video_progress_${videoId}`;
+    const val = localStorage.getItem(key);
+    return val ? parseInt(val, 10) : 0;
+}
+
+function setVideoProgress(videoId, progress) {
+    const key = `video_progress_${videoId}`;
+    localStorage.setItem(key, Math.min(100, Math.max(0, progress)));
+}
+
+function isVideoWatched(videoId) {
+    const key = `video_watched_${videoId}`;
+    return localStorage.getItem(key) === 'true';
+}
+
+function setVideoWatched(videoId, watched) {
+    const key = `video_watched_${videoId}`;
+    localStorage.setItem(key, !!watched);
+}
+
+// ===== SERMON BADGE HELPER =====
+function getSermonBadges(videoId, index, append) {
+    const isWatched = isVideoWatched(videoId);
+    const recentBadge = (index === 0 && !append) ? '<span class="sermon-badge">Reciente</span>' : '';
+    const watchedBadge = isWatched ? '<span class="sermon-badge watched">Visto</span>' : '';
+    return recentBadge + watchedBadge;
+}
+
+// ===== PREACHER EXTRACTION HELPER =====
+const KNOWN_PREACHERS = [
+    'Juan José López', 'Juanjo', 'Ana', 'Jorge Pérez', 'Klaus Morales',
+    'Karolin Pastrona', 'Wagner Barbosa', 'Tere Guillen', 'José Suarez',
+    'Eloísa Salvatierra', 'Pastor Park', 'Joni García', 'Guadalupe Orellano Tula',
+    'Carlos Hernández', 'Sebastián Pérez', 'Daniel Gómez'
+];
+
+function toTitleCase(str) {
+    if (!str) return '';
+    return str.toLowerCase().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function extractPreacher(title) {
+    if (!title) return '';
+    let t = title.replace(/\s+\d{1,2}[\s/-]+\d{1,2}[\s/-]+\d{4}\s*$/, '').trim();
+
+    // 1. Check known pastors/preachers with word boundary
+    for (const kp of KNOWN_PREACHERS) {
+        const escaped = kp.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const re = new RegExp('\\b' + escaped + '\\b', 'i');
+        if (re.test(t)) {
+            return kp === 'Juanjo' ? 'Juan José López' : kp;
+        }
+    }
+
+    // 2. Structural parsing for titles like 'Tipo | Titulo | Predicador' or 'Tipo | Predicador | Titulo'
+    const parts = t.split(/\s+[|Il]\s+|\s{3,}/).map(p => p.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+        for (let i = parts.length - 1; i >= 1; i--) {
+            let cand = parts[i];
+            if (/invitado|especial/i.test(cand)) continue;
+            if (/:|[¿?¡!]/.test(cand)) continue;
+            if (/^(el|la|los|las|un|una|cuando|como|de|en|por|para|experimentando|derribando|desafiando|reavivando|aceptando|peleando)\b/i.test(cand)) continue;
+            
+            cand = cand.replace(/^(?:PASTORA?|Pastor[a]?)\s+/i, '').replace(/\s+/g, ' ').trim();
+            if (cand.length > 2) {
+                if (cand === cand.toUpperCase() && cand.length > 3) cand = toTitleCase(cand);
+                if (/^park$/i.test(cand)) return 'Pastor Park';
+                return cand;
+            }
+        }
+    }
+
+    // 3. Fallback regex for 'PASTOR/A ...'
+    const m = t.match(/(?:PASTORA?|Pastor[a]?)\s+([A-Za-zÁÉÍÓÚáéíóúÑñ\s]+)/i);
+    if (m) {
+        let cand = m[1].trim();
+        if (cand === cand.toUpperCase() && cand.length > 3) cand = toTitleCase(cand);
+        return cand;
+    }
+
+    return '';
+}
+
+// ===== DASHBOARD & PROGRESS TRACKING =====
+const WATCH_HISTORY_KEY = 'academia_watch_history';
+
+function getWatchHistory() {
+    try {
+        const raw = localStorage.getItem(WATCH_HISTORY_KEY);
+        if (!raw) return [];
+        const list = JSON.parse(raw);
+        return Array.isArray(list) ? list : [];
+    } catch (e) {
+        console.warn('[Academia] Error reading watch history:', e);
+        return [];
+    }
+}
+
+function recordVideoWatch(video) {
+    if (!video || !video.id) return;
+    setVideoWatched(video.id, true);
+    try {
+        let history = getWatchHistory();
+        history = history.filter(item => item.id !== video.id);
+        history.unshift({
+            id: video.id,
+            title: video.title || '',
+            thumbnail: video.thumbnail || `https://img.youtube.com/vi/${video.id}/mqdefault.jpg`,
+            date: video.date || '',
+            preacher: video.preacher || extractPreacher(video.title || ''),
+            watchedAt: Date.now()
+        });
+        if (history.length > 50) history = history.slice(0, 50);
+        localStorage.setItem(WATCH_HISTORY_KEY, JSON.stringify(history));
+    } catch (e) {
+        console.warn('[Academia] Error saving watch history:', e);
+    }
+}
+
+function getOverallProgress(allVideos = []) {
+    const history = getWatchHistory();
+    const historyIds = new Set(history.map(item => item.id));
+    const watchedSet = new Set();
+
+    allVideos.forEach(v => {
+        if (historyIds.has(v.id) || isVideoWatched(v.id)) {
+            watchedSet.add(v.id);
+        }
+    });
+
+    const totalWatched = watchedSet.size;
+    const totalAvailable = allVideos.length;
+    const percentage = totalAvailable > 0 ? Math.min(100, Math.round((totalWatched / totalAvailable) * 100)) : 0;
+
+    let recommendedVideo = allVideos.find(v => !watchedSet.has(v.id)) || (allVideos.length > 0 ? allVideos[0] : null);
+    const recentWatched = history.slice(0, 3);
+
+    return {
+        totalAvailable,
+        totalWatched,
+        percentage,
+        recommendedVideo,
+        recentWatched
+    };
+}
+
+function renderProgressDashboard(containerId, allVideos = []) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const stats = getOverallProgress(allVideos);
+    const hasActivity = stats.totalWatched > 0 || stats.recentWatched.length > 0;
+
+    let html = `
+        <div class="dashboard-kpi-grid">
+            <div class="dashboard-kpi-card">
+                <div class="kpi-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>
+                </div>
+                <div class="kpi-body">
+                    <span class="kpi-value">${stats.totalWatched}</span>
+                    <span class="kpi-label">Predicaciones estudiadas</span>
+                </div>
+            </div>
+            <div class="dashboard-kpi-card">
+                <div class="kpi-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                </div>
+                <div class="kpi-body">
+                    <span class="kpi-value">${stats.percentage}%</span>
+                    <span class="kpi-label">Progreso del catálogo</span>
+                    <div class="progress-bar-container" title="${stats.percentage}% completado">
+                        <div class="progress-bar-fill" style="width: ${stats.percentage}%;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="dashboard-kpi-card">
+                <div class="kpi-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                </div>
+                <div class="kpi-body">
+                    <span class="kpi-value">${stats.totalAvailable}</span>
+                    <span class="kpi-label">Total disponibles</span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    if (stats.recommendedVideo) {
+        const rec = stats.recommendedVideo;
+        html += `
+            <div class="dashboard-recommendation-panel">
+                <div class="rec-badge">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    <span>${hasActivity ? 'Próximo estudio recomendado' : 'Comienza tu primer estudio'}</span>
+                </div>
+                <div class="rec-content">
+                    <div class="rec-thumb">
+                        <img src="${rec.thumbnail}" alt="${escapeHtml(rec.title)}" loading="lazy">
+                    </div>
+                    <div class="rec-details">
+                        <h4 class="rec-title">${escapeHtml(rec.title)}</h4>
+                        <div class="rec-meta">
+                            ${rec.preacher ? `<span class="sermon-preacher-badge">${escapeHtml(rec.preacher)}</span>` : ''}
+                            <span class="rec-date">${escapeHtml(rec.date || '')}</span>
+                        </div>
+                        <a href="estudio.html?id=${rec.id}" class="btn btn-primary btn-sm rec-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                            ${hasActivity ? 'Continuar estudio' : 'Empezar ahora'}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    if (stats.recentWatched && stats.recentWatched.length > 0) {
+        html += `
+            <div class="dashboard-recent-section">
+                <div class="dashboard-subtitle-row">
+                    <h3 class="dashboard-subtitle">Tu actividad reciente</h3>
+                    <a href="predicaciones.html" class="dashboard-link">Ver catálogo completo →</a>
+                </div>
+                <div class="dashboard-recent-grid">
+                    ${stats.recentWatched.map(v => `
+                        <a href="estudio.html?id=${v.id}" class="recent-card" aria-label="Continuar ${escapeHtml(v.title)}">
+                            <div class="recent-thumb-wrap">
+                                <img src="${v.thumbnail}" alt="${escapeHtml(v.title)}" loading="lazy">
+                                <span class="sermon-badge watched">Visto</span>
+                            </div>
+                            <div class="recent-info">
+                                <h4 class="recent-title">${escapeHtml(v.title)}</h4>
+                                <div class="recent-meta">
+                                    ${v.preacher ? `<span class="recent-preacher">${escapeHtml(v.preacher)}</span>` : ''}
+                                    <span class="recent-date">${escapeHtml(v.date || '')}</span>
+                                </div>
+                            </div>
+                        </a>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+}
+
+// ===== VIDEO NOT AVAILABLE / EMPTY STATE =====
+function renderVideoNotFoundHTML(suggestedVideos = []) {
+    const suggestions = (suggestedVideos || []).slice(0, 3);
+    const suggestionsHTML = suggestions.length > 0 ? `
+        <div class="unavailable-suggestions">
+            <h4 class="unavailable-suggestions-title">Predicaciones recomendadas</h4>
+            <div class="unavailable-suggestions-grid">
+                ${suggestions.map(v => `
+                    <a href="estudio.html?id=${v.id}" class="unavailable-sug-card">
+                        <div class="unavailable-sug-thumb">
+                            <img src="${v.thumbnail}" alt="${escapeHtml(v.title)}" loading="lazy">
+                        </div>
+                        <div class="unavailable-sug-info">
+                            <h5>${escapeHtml(v.title)}</h5>
+                            ${v.preacher ? `<span class="sermon-preacher-badge">${escapeHtml(v.preacher)}</span>` : ''}
+                            <span class="sug-date">${escapeHtml(v.date || '')}</span>
+                        </div>
+                    </a>
+                `).join('')}
+            </div>
+        </div>
+    ` : '';
+
+    return `
+        <div class="video-unavailable-container">
+            <div class="unavailable-icon-wrap">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                </svg>
+            </div>
+            <h2 class="unavailable-title">Esta predicación no está disponible</h2>
+            <p class="unavailable-desc">
+                El video que buscas puede haber sido eliminado, modificado o no se encuentra en el catálogo de subidas disponibles.
+            </p>
+            <div class="unavailable-actions">
+                <a href="predicaciones.html" class="btn btn-primary">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                    Volver a todas las predicaciones
+                </a>
+            </div>
+            ${suggestionsHTML}
+        </div>
+    `;
+}
+
+function renderVideoNotFoundState(containerId, suggestedVideos = []) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = renderVideoNotFoundHTML(suggestedVideos);
+}
+
+// ===== BACKUP & EXPORT HELPERS =====
+function generateBackupData() {
+    const notes = getNotes();
+    const history = getWatchHistory();
+    const quizzes = getQuizHistory();
+    
+    const videoStates = {};
+    try {
+        if (typeof localStorage !== 'undefined') {
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.startsWith('video_watched_') || key.startsWith('video_progress_'))) {
+                    videoStates[key] = localStorage.getItem(key);
+                }
+            }
+        }
+    } catch {}
+
+    return {
+        appName: 'Academia Bíblica',
+        version: '1.0',
+        exportedAt: new Date().toISOString(),
+        notes,
+        history,
+        quizzes,
+        videoStates
+    };
+}
+
+function _downloadTextFile(filename, text, mimeType = 'text/plain') {
+    if (typeof document === 'undefined') return;
+    const blob = new Blob([text], { type: `${mimeType};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function exportBackupJSON() {
+    const data = generateBackupData();
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const jsonStr = JSON.stringify(data, null, 2);
+    _downloadTextFile(`academia_biblica_backup_${dateStr}.json`, jsonStr, 'application/json');
+}
+
+function importBackupJSON(jsonString) {
+    try {
+        const data = typeof jsonString === 'string' ? JSON.parse(jsonString) : jsonString;
+        if (!data || typeof data !== 'object') {
+            return { success: false, error: 'Archivo no contiene un formato JSON válido.' };
+        }
+
+        let notesCount = 0;
+        if (data.notes && typeof data.notes === 'object') {
+            const currentNotes = getNotes();
+            const merged = { ...currentNotes, ...data.notes };
+            setStorage('academia_notes', merged);
+            notesCount = Object.keys(data.notes).length;
+        }
+
+        if (Array.isArray(data.history)) {
+            const currentHist = getWatchHistory();
+            const histMap = new Map();
+            data.history.forEach(item => { if (item && item.id) histMap.set(item.id, item); });
+            currentHist.forEach(item => { if (item && item.id && !histMap.has(item.id)) histMap.set(item.id, item); });
+            try {
+                localStorage.setItem(WATCH_HISTORY_KEY, JSON.stringify(Array.from(histMap.values())));
+            } catch {}
+        }
+
+        if (Array.isArray(data.quizzes)) {
+            const currentQuizzes = getQuizHistory();
+            const mergedQuizzes = [...data.quizzes, ...currentQuizzes].slice(0, 50);
+            setStorage('academia_quizzes', mergedQuizzes);
+        }
+
+        if (data.videoStates && typeof data.videoStates === 'object') {
+            Object.entries(data.videoStates).forEach(([k, v]) => {
+                try { localStorage.setItem(k, String(v)); } catch {}
+            });
+        }
+
+        return { success: true, notesCount };
+    } catch (e) {
+        return { success: false, error: e.message || 'Error al procesar archivo de copia de seguridad.' };
+    }
+}
+
+function generateNotesMarkdown() {
+    const notes = getNotes();
+    const keys = Object.keys(notes);
+    const dateStr = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    
+    let md = `# Mis Apuntes - Academia Bíblica\n`;
+    md += `*Exportado el ${dateStr}*\n\n`;
+    md += `---\n\n`;
+
+    if (keys.length === 0) {
+        md += `*No hay apuntes guardados actualmente.*\n`;
+        return md;
+    }
+
+    const sorted = keys.map(k => ({ id: k, ...notes[k] })).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+    sorted.forEach((n, idx) => {
+        const nDate = n.date ? new Date(n.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+        const title = n.title || `Predicación (${n.id})`;
+        md += `## ${idx + 1}. ${title}\n`;
+        if (n.id) md += `- **ID de Video**: \`${n.id}\`\n`;
+        if (nDate) md += `- **Fecha de guardado**: ${nDate}\n`;
+        if (n.id) md += `- **Enlace**: https://www.youtube.com/watch?v=${n.id}\n`;
+        md += `\n### Apuntes Personales:\n\n${n.text || ''}\n\n`;
+        md += `---\n\n`;
+    });
+
+    return md;
+}
+
+function exportNotesMarkdown() {
+    const md = generateNotesMarkdown();
+    const dateStr = new Date().toISOString().slice(0, 10);
+    _downloadTextFile(`mis_apuntes_academia_biblica_${dateStr}.md`, md, 'text/markdown');
+}
+
+// ===== SEARCH & HIGHLIGHT HELPERS =====
+function normalizeSearchStr(str) {
+    if (!str) return '';
+    return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+function highlightMatches(text, query) {
+    if (!text || !query) return escapeHtml(text || '');
+    const q = query.trim();
+    if (!q) return escapeHtml(text);
+
+    const safeText = escapeHtml(text);
+    const escapedQuery = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`(${escapedQuery})`, 'gi');
+    return safeText.replace(pattern, '<mark>$1</mark>');
+}
+
+function searchSermonsDeep(query, videos = []) {
+    if (!query || !query.trim()) return videos;
+    const qNorm = normalizeSearchStr(query);
+    const notes = getNotes();
+    const results = [];
+
+    (videos || []).forEach(v => {
+        if (!v) return;
+        const titleNorm = normalizeSearchStr(v.title);
+        const preacherNorm = normalizeSearchStr(v.preacher);
+        
+        // 1. Coincidencia en título o predicador
+        if (titleNorm.includes(qNorm) || preacherNorm.includes(qNorm)) {
+            results.push({
+                ...v,
+                matchType: 'title',
+                matchSnippet: ''
+            });
+            return;
+        }
+
+        // 2. Coincidencia en notas personales
+        const note = notes[v.id];
+        if (note && note.text) {
+            const noteNorm = normalizeSearchStr(note.text);
+            if (noteNorm.includes(qNorm)) {
+                const idx = noteNorm.indexOf(qNorm);
+                const start = Math.max(0, idx - 40);
+                const end = Math.min(note.text.length, idx + query.length + 50);
+                const snippet = (start > 0 ? '...' : '') + note.text.slice(start, end).trim() + (end < note.text.length ? '...' : '');
+
+                results.push({
+                    ...v,
+                    matchType: 'note',
+                    matchSnippet: snippet
+                });
+                return;
+            }
+        }
+
+        // 3. Coincidencia en transcripción cacheada
+        const cachedTrans = getCachedTranscript(v.id);
+        if (Array.isArray(cachedTrans)) {
+            for (const seg of cachedTrans) {
+                const segText = seg.text || '';
+                if (normalizeSearchStr(segText).includes(qNorm)) {
+                    results.push({
+                        ...v,
+                        matchType: 'transcript',
+                        matchSnippet: `[${seg.start ? Math.floor(seg.start / 60) + ' min' : 'Transcripción'}]: ${segText.trim()}`
+                    });
+                    return;
+                }
+            }
+        }
+
+        // 4. Coincidencia en estudio bíblico IA cacheado
+        const cachedStudy = getCachedStudy(v.id);
+        if (cachedStudy && typeof cachedStudy === 'object') {
+            const studyStr = JSON.stringify(cachedStudy);
+            if (normalizeSearchStr(studyStr).includes(qNorm)) {
+                results.push({
+                    ...v,
+                    matchType: 'study',
+                    matchSnippet: 'Coincidencia en el análisis bíblico con IA'
+                });
+                return;
+            }
+        }
+    });
+
+    return results;
+}
+
+
+
+
+

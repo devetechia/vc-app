@@ -7,6 +7,22 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0a0f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="logos/logo vc.png">
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+    <style>
+            .sermon-badge.watched {
+                background-color: var(--gold);
+                color: var(--dark);
+                font-size: 0.75rem;
+                padding: 2px 6px;
+                border-radius: 3px;
+                margin-left: 6px;
+            }
+        </style>
 </head>
 <body>
     <nav class="navbar scrolled" id="navbar">
@@ -35,14 +51,75 @@
                 <p class="section-desc">Selecciona una predicacion para estudiarla, ver la transcripcion o hacer un test.</p>
             </div>
 
-            <div class="search-bar">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                <input type="text" id="searchInput" placeholder="Buscar predicacion..." aria-label="Buscar predicacion">
-                <button id="searchClear" aria-label="Limpiar busqueda" style="display:none; position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:18px;">×</button>
+            <div class="sermons-filter-panel">
+                <div class="filter-row-search">
+                    <div class="search-bar" style="margin: 0; max-width: 100%;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                        <input type="text" id="searchInput" placeholder="Buscar por título, tema o palabra clave..." aria-label="Buscar predicación">
+                        <button id="searchClear" aria-label="Limpiar búsqueda" style="display:none; position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:18px;">×</button>
+                    </div>
+                </div>
+
+                <div class="filters-grid">
+                    <div class="filter-field">
+                        <label for="filterYear">Año</label>
+                        <select id="filterYear" class="filter-select" aria-label="Filtrar por año">
+                            <option value="">Todos los años</option>
+                        </select>
+                    </div>
+                    <div class="filter-field">
+                        <label for="filterMonth">Mes</label>
+                        <select id="filterMonth" class="filter-select" aria-label="Filtrar por mes">
+                            <option value="">Todos los meses</option>
+                            <option value="1">Enero</option>
+                            <option value="2">Febrero</option>
+                            <option value="3">Marzo</option>
+                            <option value="4">Abril</option>
+                            <option value="5">Mayo</option>
+                            <option value="6">Junio</option>
+                            <option value="7">Julio</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Septiembre</option>
+                            <option value="10">Octubre</option>
+                            <option value="11">Noviembre</option>
+                            <option value="12">Diciembre</option>
+                        </select>
+                    </div>
+                    <div class="filter-field">
+                        <label for="filterPreacher">Predicador</label>
+                        <select id="filterPreacher" class="filter-select" aria-label="Filtrar por predicador">
+                            <option value="">Todos los predicadores</option>
+                        </select>
+                    </div>
+                    <div class="filter-field">
+                        <label for="filterSort">Ordenar por</label>
+                        <select id="filterSort" class="filter-select" aria-label="Ordenar predicaciones">
+                            <option value="date-desc">Más recientes primero</option>
+                            <option value="date-asc">Más antiguos primero</option>
+                            <option value="title-asc">Título (A - Z)</option>
+                            <option value="title-desc">Título (Z - A)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="filter-actions">
+                    <div class="filter-stats" id="filterStats">
+                        Cargando estadísticas...
+                    </div>
+                    <button id="filterResetBtn" class="filter-reset-btn" type="button">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        Restablecer filtros
+                    </button>
+                </div>
+                <div id="activeFilterChips" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;"></div>
             </div>
 
             <div class="sermons-grid" id="sermonsGrid">
                 <div class="loading"><div class="loading-spinner"></div><p>Cargando predicaciones...</p></div>
+            </div>
+
+            <div id="loadMoreContainer" style="text-align:center; margin:24px 0;">
+                <button id="loadMoreBtn" class="btn btn-outline btn-sm" style="display:none;">Cargar más 50</button>
             </div>
         </div>
     </div>
@@ -53,69 +130,361 @@
         </div>
     </footer>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=2.3.0"></script>
     <script>
-        initNavbar();
-        let allVideos = [];
+            initNavbar();
 
-        fetchYouTubeVideos(50).then(videos => {
-            allVideos = videos;
-            renderSermons(videos);
-        }).catch((err) => {
-            const isQuota = err && err.message === 'quotaExceeded';
-            document.getElementById('sermonsGrid').innerHTML = isQuota
-                ? '<div class="empty-state"><h3>Cuota de YouTube alcanzada</h3><p>Has alcanzado el limite diario de la API. Intenta de nuevo manana o recarga la pagina (usa cache local).</p><button class="btn btn-outline btn-sm" onclick="location.reload()" style="margin-top:12px;">Reintentar</button></div>'
-                : '<div class="empty-state"><h3>Error al cargar</h3><p>No se pudieron cargar las predicaciones. Verifica tu conexion y que el servidor este corriendo en localhost:5000.</p></div>';
-        });
+            const STORAGE_KEY = 'academia_sermons_filters';
 
-        function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-        function highlight(text, q) {
-            if (!q) return escapeHtml(text);
-            const re = new RegExp('(' + escapeRegExp(q) + ')', 'gi');
-            return escapeHtml(text).replace(re, '<mark style="background:rgba(139,92,246,0.3); color:inherit; padding:0 2px; border-radius:3px;">$1</mark>');
-        }
+            let allLoadedVideos = [];
+            let nextPageToken = '';
+            let isLoading = false;
+            let hasMore = true;
 
-        let currentQuery = '';
-        function renderSermons(videos) {
-            const grid = document.getElementById('sermonsGrid');
-            if (!videos.length) {
-                grid.innerHTML = '<div class="empty-state"><h3>Sin resultados</h3><p>No se encontraron predicaciones para "' + escapeHtml(currentQuery) + '".</p></div>';
-                return;
+            const filterState = {
+                search: '',
+                year: '',
+                month: '',
+                preacher: '',
+                sort: 'date-desc'
+            };
+
+            const searchInput = document.getElementById('searchInput');
+            const searchClear = document.getElementById('searchClear');
+            const filterYear = document.getElementById('filterYear');
+            const filterMonth = document.getElementById('filterMonth');
+            const filterPreacher = document.getElementById('filterPreacher');
+            const filterSort = document.getElementById('filterSort');
+            const filterResetBtn = document.getElementById('filterResetBtn');
+            const filterStats = document.getElementById('filterStats');
+            const sermonsGrid = document.getElementById('sermonsGrid');
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            const loadMoreContainer = document.getElementById('loadMoreContainer');
+
+            function loadSavedFilters() {
+                try {
+                    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+                    if (saved && typeof saved === 'object') {
+                        filterState.search = saved.search || '';
+                        filterState.year = saved.year || '';
+                        filterState.month = saved.month || '';
+                        filterState.preacher = saved.preacher || '';
+                        filterState.sort = saved.sort || 'date-desc';
+
+                        searchInput.value = filterState.search;
+                        searchClear.style.display = filterState.search ? 'block' : 'none';
+                        filterMonth.value = filterState.month;
+                        filterSort.value = filterState.sort;
+                    }
+                } catch (e) {
+                    console.warn('[Academia] Error al cargar filtros de localStorage:', e);
+                }
             }
-            grid.innerHTML = videos.map((v, i) => `
-                <a href="estudio.html?id=${v.id}" class="sermon-card">
-                    <div class="sermon-thumb">
-                        <img src="${v.thumbnail}" alt="${escapeHtml(v.title)}" loading="lazy" width="480" height="270">
-                        <div class="sermon-play" aria-hidden="true">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                        </div>
-                        ${i === 0 ? '<span class="sermon-badge">Reciente</span>' : ''}
-                    </div>
-                    <div class="sermon-info">
-                        <h3>${highlight(v.title, currentQuery)}</h3>
-                        <p>${escapeHtml(v.date)}</p>
-                    </div>
-                </a>
-            `).join('');
-        }
 
-        function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+            function saveFilters() {
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(filterState));
+                } catch (e) {
+                    console.warn('[Academia] Error al guardar filtros en localStorage:', e);
+                }
+            }
 
-        const searchInput = document.getElementById('searchInput');
-        const searchClear = document.getElementById('searchClear');
-        searchInput.addEventListener('input', debounce((e) => {
-            currentQuery = e.target.value.trim();
-            searchClear.style.display = currentQuery ? 'block' : 'none';
-            const q = currentQuery.toLowerCase();
-            const filtered = !q ? allVideos : allVideos.filter(v =>
-                v.title.toLowerCase().includes(q) || (v.description && v.description.toLowerCase().includes(q))
-            );
-            renderSermons(filtered);
-        }, 250));
-        searchClear.addEventListener('click', () => {
-            searchInput.value = ''; currentQuery = ''; searchClear.style.display = 'none';
-            renderSermons(allVideos); searchInput.focus();
-        });
-    </script>
+            function normalizeStr(s) {
+                return (s || '')
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .toLowerCase()
+                    .trim();
+            }
+
+            function populateFilterDropdowns() {
+                // Años únicos ordenados desc
+                const years = Array.from(new Set(allLoadedVideos.map(v => v.year).filter(y => y != null && !isNaN(y))))
+                    .sort((a, b) => b - a);
+                const currentYear = filterState.year;
+                filterYear.innerHTML = '<option value="">Todos los años</option>' +
+                    years.map(y => `<option value="${y}" ${String(y) === String(currentYear) ? 'selected' : ''}>${y}</option>`).join('');
+
+                // Predicadores únicos unificados sin duplicar por tildes
+                const preacherMap = new Map();
+                allLoadedVideos.forEach(v => {
+                    if (!v.preacher) return;
+                    const norm = normalizeStr(v.preacher);
+                    if (!preacherMap.has(norm) || v.preacher.length > preacherMap.get(norm).length) {
+                        preacherMap.set(norm, v.preacher);
+                    }
+                });
+                const preachers = Array.from(preacherMap.values())
+                    .sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+                const currentPreacher = filterState.preacher;
+                filterPreacher.innerHTML = '<option value="">Todos los predicadores</option>' +
+                    preachers.map(p => `<option value="${escapeHtml(p)}" ${normalizeStr(p) === normalizeStr(currentPreacher) ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('');
+
+                if (currentYear) filterYear.value = currentYear;
+                if (currentPreacher) filterPreacher.value = currentPreacher;
+            }
+
+            function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+            function highlight(text, q) {
+                if (!q) return escapeHtml(text);
+                const re = new RegExp('(' + escapeRegExp(q) + ')', 'gi');
+                return escapeHtml(text).replace(re, '<mark>$1</mark>');
+            }
+
+            function applyFiltersAndRender() {
+                saveFilters();
+
+                let filtered = allLoadedVideos;
+                if (filterState.search && filterState.search.trim()) {
+                    filtered = typeof searchSermonsDeep === 'function' 
+                        ? searchSermonsDeep(filterState.search, allLoadedVideos) 
+                        : allLoadedVideos.filter(v => {
+                            const q = normalizeStr(filterState.search);
+                            return normalizeStr(v.title).includes(q) || normalizeStr(v.preacher).includes(q) || normalizeStr(v.description).includes(q);
+                        });
+                }
+
+                filtered = filtered.filter(v => {
+                    if (filterState.year && parseInt(v.year, 10) !== parseInt(filterState.year, 10)) {
+                        return false;
+                    }
+                    if (filterState.month && parseInt(v.month, 10) !== parseInt(filterState.month, 10)) {
+                        return false;
+                    }
+                    if (filterState.preacher && normalizeStr(v.preacher) !== normalizeStr(filterState.preacher)) {
+                        return false;
+                    }
+                    return true;
+                });
+
+                switch (filterState.sort) {
+                    case 'date-asc':
+                        filtered.sort((a, b) => new Date(a.rawDate || a.date) - new Date(b.rawDate || b.date));
+                        break;
+                    case 'title-asc':
+                        filtered.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'es', { sensitivity: 'base' }));
+                        break;
+                    case 'title-desc':
+                        filtered.sort((a, b) => (b.title || '').localeCompare(a.title || '', 'es', { sensitivity: 'base' }));
+                        break;
+                    case 'date-desc':
+                    default:
+                        filtered.sort((a, b) => new Date(b.rawDate || b.date) - new Date(a.rawDate || a.date));
+                        break;
+                }
+
+                if (filterStats) {
+                    const hasActiveFilter = filterState.search || filterState.year || filterState.month || filterState.preacher;
+                    filterStats.innerHTML = `Mostrando <strong>${filtered.length}</strong> de <strong>${allLoadedVideos.length}</strong> predicaciones` +
+                        (hasActiveFilter ? ' <span style="opacity:0.8;">(con filtros aplicados)</span>' : '');
+                }
+
+                // Render chips de filtros activos
+                const chipsContainer = document.getElementById('activeFilterChips');
+                if (chipsContainer) {
+                    const chips = [];
+                    if (filterState.search) {
+                        chips.push(`<span class="filter-chip" onclick="removeFilter('search')">🔍 "${escapeHtml(filterState.search)}" <span class="chip-close">&times;</span></span>`);
+                    }
+                    if (filterState.year) {
+                        chips.push(`<span class="filter-chip" onclick="removeFilter('year')">📅 Año: ${filterState.year} <span class="chip-close">&times;</span></span>`);
+                    }
+                    if (filterState.month) {
+                        const monthNames = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+                        chips.push(`<span class="filter-chip" onclick="removeFilter('month')">🗓️ ${monthNames[parseInt(filterState.month, 10)] || filterState.month} <span class="chip-close">&times;</span></span>`);
+                    }
+                    if (filterState.preacher) {
+                        chips.push(`<span class="filter-chip" onclick="removeFilter('preacher')">👤 ${escapeHtml(filterState.preacher)} <span class="chip-close">&times;</span></span>`);
+                    }
+                    chipsContainer.innerHTML = chips.join('');
+                }
+
+                if (!filtered.length) {
+                    const activeDescriptions = [];
+                    if (filterState.search) activeDescriptions.push(`Búsqueda: "${escapeHtml(filterState.search)}"`);
+                    if (filterState.year) activeDescriptions.push(`Año: ${filterState.year}`);
+                    if (filterState.month) {
+                        const monthNames = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+                        activeDescriptions.push(`Mes: ${monthNames[parseInt(filterState.month, 10)] || filterState.month}`);
+                    }
+                    if (filterState.preacher) activeDescriptions.push(`Predicador: ${escapeHtml(filterState.preacher)}`);
+                    const desc = activeDescriptions.length ? ` con los filtros seleccionados (${activeDescriptions.join(', ')})` : '';
+
+                    sermonsGrid.innerHTML = `
+                        <div class="empty-state" style="grid-column: 1 / -1;">
+                            <h3>Sin resultados</h3>
+                            <p>No se encontraron predicaciones${desc}.</p>
+                            <button class="btn btn-outline btn-sm" onclick="resetFilters()" style="margin-top:10px;">Restablecer filtros</button>
+                        </div>`;
+                } else {
+                    sermonsGrid.innerHTML = filtered.map((v, i) => {
+                        let snippetHTML = '';
+                        if (filterState.search && v.matchSnippet && v.matchType && v.matchType !== 'title') {
+                            const badgeLabel = v.matchType === 'note' ? '📝 Apunte' : v.matchType === 'transcript' ? '🎙️ Transcripción' : '✨ Estudio IA';
+                            snippetHTML = `
+                                <div class="search-snippet-match">
+                                    <span class="match-badge match-${v.matchType}">${badgeLabel}</span>
+                                    <span>${typeof highlightMatches === 'function' ? highlightMatches(v.matchSnippet, filterState.search) : escapeHtml(v.matchSnippet)}</span>
+                                </div>
+                            `;
+                        }
+
+                        const renderedTitle = typeof highlightMatches === 'function' 
+                            ? highlightMatches(v.title, filterState.search) 
+                            : highlight(v.title, filterState.search);
+                        const renderedPreacher = v.preacher 
+                            ? (typeof highlightMatches === 'function' ? highlightMatches(v.preacher, filterState.search) : escapeHtml(v.preacher))
+                            : '';
+
+                        return `
+                            <a href="estudio.html?id=${v.id}" class="sermon-card">
+                                <div class="sermon-thumb">
+                                    <img src="${v.thumbnail}" alt="${escapeHtml(v.title)}" loading="lazy" width="480" height="270">
+                                    <div class="sermon-play" aria-hidden="true">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                                    </div>
+                                    ${getSermonBadges(v.id, i, false)}
+                                </div>
+                                <div class="sermon-info">
+                                    <h3>${renderedTitle}</h3>
+                                    <p>${escapeHtml(v.date)}${renderedPreacher ? ` • <span class="sermon-preacher-badge">${renderedPreacher}</span>` : ''}</p>
+                                    ${snippetHTML}
+                                </div>
+                            </a>
+                        `;
+                    }).join('');
+                }
+
+                if (loadMoreBtn && loadMoreContainer) {
+                    if (hasMore && allLoadedVideos.length) {
+                        loadMoreBtn.style.display = 'inline-block';
+                        loadMoreContainer.style.display = 'block';
+                    } else {
+                        loadMoreBtn.style.display = 'none';
+                        loadMoreContainer.style.display = 'none';
+                    }
+                }
+            }
+
+            window.removeFilter = function(type) {
+                if (type === 'search') {
+                    filterState.search = '';
+                    searchInput.value = '';
+                    searchClear.style.display = 'none';
+                } else if (type === 'year') {
+                    filterState.year = '';
+                    filterYear.value = '';
+                } else if (type === 'month') {
+                    filterState.month = '';
+                    filterMonth.value = '';
+                } else if (type === 'preacher') {
+                    filterState.preacher = '';
+                    filterPreacher.value = '';
+                }
+                applyFiltersAndRender();
+            };
+
+            function resetFilters() {
+                filterState.search = '';
+                filterState.year = '';
+                filterState.month = '';
+                filterState.preacher = '';
+                filterState.sort = 'date-desc';
+
+                searchInput.value = '';
+                searchClear.style.display = 'none';
+                filterYear.value = '';
+                filterMonth.value = '';
+                filterPreacher.value = '';
+                filterSort.value = 'date-desc';
+
+                applyFiltersAndRender();
+            }
+
+            // Event Listeners
+            searchInput.addEventListener('input', debounce((e) => {
+                filterState.search = e.target.value.trim();
+                searchClear.style.display = filterState.search ? 'block' : 'none';
+                applyFiltersAndRender();
+            }, 250));
+
+            searchClear.addEventListener('click', () => {
+                searchInput.value = '';
+                filterState.search = '';
+                searchClear.style.display = 'none';
+                applyFiltersAndRender();
+                searchInput.focus();
+            });
+
+            filterYear.addEventListener('change', (e) => {
+                filterState.year = e.target.value;
+                applyFiltersAndRender();
+            });
+
+            filterMonth.addEventListener('change', (e) => {
+                filterState.month = e.target.value;
+                applyFiltersAndRender();
+            });
+
+            filterPreacher.addEventListener('change', (e) => {
+                filterState.preacher = e.target.value;
+                applyFiltersAndRender();
+            });
+
+            filterSort.addEventListener('change', (e) => {
+                filterState.sort = e.target.value;
+                applyFiltersAndRender();
+            });
+
+            filterResetBtn.addEventListener('click', resetFilters);
+
+            async function loadMore() {
+                if (isLoading || !hasMore) return;
+                isLoading = true;
+                if (loadMoreBtn) {
+                    loadMoreBtn.disabled = true;
+                    loadMoreBtn.textContent = 'Cargando...';
+                }
+
+                try {
+                    const { items, nextPageToken: token } = await fetchYouTubeVideos(50, nextPageToken);
+                    nextPageToken = token;
+                    const normalized = (items || []).map(normalizeVideoItem).filter(Boolean);
+                    allLoadedVideos = [...allLoadedVideos, ...normalized];
+                    populateFilterDropdowns();
+                    applyFiltersAndRender();
+                } catch (err) {
+                    console.error('[Academia] Error al cargar más videos:', err);
+                    if (typeof showToast === 'function') {
+                        showToast('Error al cargar más predicaciones');
+                    }
+                } finally {
+                    isLoading = false;
+                    if (loadMoreBtn) {
+                        loadMoreBtn.disabled = false;
+                        loadMoreBtn.textContent = 'Cargar más 50';
+                    }
+                }
+            }
+
+            document.getElementById('loadMoreBtn')?.addEventListener('click', loadMore);
+
+            // Carga inicial
+            loadSavedFilters();
+            fetchYouTubeVideos(50).then(({ items, nextPageToken: token }) => {
+                nextPageToken = token;
+                hasMore = token !== '';
+                allLoadedVideos = (items || []).map(normalizeVideoItem).filter(Boolean);
+                populateFilterDropdowns();
+                applyFiltersAndRender();
+            }).catch((err) => {
+                const isQuota = err && err.message === 'quotaExceeded';
+                const errMsg = err && err.message ? err.message : 'Error desconocido';
+                sermonsGrid.innerHTML = isQuota
+                    ? '<div class="empty-state" style="grid-column: 1 / -1;"><h3>Cuota de YouTube alcanzada</h3><p>Has alcanzado el límite diario de la API. Intenta de nuevo mañana o recarga la página.</p><button class="btn btn-outline btn-sm" onclick="location.reload()" style="margin-top:12px;">Reintentar</button></div>'
+                    : '<div class="empty-state" style="grid-column: 1 / -1;"><h3>Error al cargar</h3><p>' + escapeHtml(errMsg) + '</p><p style="margin-top:8px;font-size:0.85em;color:#999;">Abre DevTools (F12 → Consola) para ver detalles técnicos.</p></div>';
+                console.error('[Academia] Error en carga inicial:', err);
+            });
+        </script>
 </body>
 </html>

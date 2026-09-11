@@ -1,4 +1,5 @@
 import os
+import re
 import tempfile
 import time
 from pathlib import Path
@@ -20,22 +21,47 @@ if os.getenv("COOKIES_TXT") and not Path("cookies.txt").exists():
     except Exception as e:
         print(f"No se pudo crear cookies.txt desde env: {e}")
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder=".", static_url_path="")
 CORS(app, origins=[
+    "http://localhost:5000",
+    "http://127.0.0.1:5000",
     "http://localhost:8001",
     "http://127.0.0.1:8001",
     "http://localhost:8000",
     "https://devetechia.github.io",
     "https://*.fly.dev",
     "https://*.vercel.app",
+    "null",
 ])
 
-YT_API_KEY = os.getenv("YT_API_KEY", "AIzaSyBcbSSyNgUn5yiVxQJ0-yTUj1eVEU1dCu8")
+# Servir archivos estáticos (HTML, CSS, JS) desde el directorio del proyecto
+from flask import send_from_directory
+
+@app.route('/')
+def index():
+    return send_from_directory(str(Path(__file__).parent), 'index.html')
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(str(Path(__file__).parent / 'logos'), 'logo.svg', mimetype='image/svg+xml')
+
+@app.route('/<path:filename>')
+def serve_static(filename):
+    return send_from_directory(str(Path(__file__).parent), filename)
+
+
+YT_API_KEY = os.getenv("YT_API_KEY", "")
 YT_CHANNEL_ID = os.getenv("YT_CHANNEL_ID", "UCRpj-vU_Nu6UaxJJvGI7jAA")
-OPENROUTER_KEY = os.getenv("OPENROUTER_KEY", "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")
+OPENROUTER_KEY = os.getenv("OPENROUTER_KEY", "")
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "poolside/laguna-s-2.1:free")
 GROK_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 PROXY_URL = os.getenv("PROXY_URL", "")  # ej: http://user:pass@proxy.webshare.io:80
+
+# Validación de API Keys (ADR-001)
+if not YT_API_KEY:
+    print("⚠️  WARNING: YT_API_KEY no configurada. Configure .env o variable de entorno.")
+if not OPENROUTER_KEY:
+    print("⚠️  WARNING: OPENROUTER_KEY no configurada. Configure .env o variable de entorno.")
 
 def get_proxy_config():
     if not PROXY_URL:
@@ -136,7 +162,7 @@ def transcribe_with_whisper(video_id):
         except: pass
         return None
 
-# ===== VIDEOS (proxy YouTube Data API) =====
+# ===== VIDEOS (proxy YouTube Data API via Playlist de Subidas) =====
 @app.route("/api/videos")
 def get_videos():
     max_results = request.args.get("maxResults", "50")
@@ -146,10 +172,15 @@ def get_videos():
         max_results = 50
     page_token = request.args.get("pageToken", "")
 
+    # La playlist de subidas oficial de un canal siempre es 'UU' + channel_id[2:]
+    uploads_playlist_id = os.getenv("YT_UPLOADS_PLAYLIST_ID", "")
+    if not uploads_playlist_id and YT_CHANNEL_ID:
+        uploads_playlist_id = "UU" + YT_CHANNEL_ID[2:] if YT_CHANNEL_ID.startswith("UC") else YT_CHANNEL_ID
+
     url = (
-        f"https://www.googleapis.com/youtube/v3/search"
-        f"?key={YT_API_KEY}&channelId={YT_CHANNEL_ID}"
-        f"&part=snippet&order=date&maxResults={max_results}&type=video"
+        f"https://www.googleapis.com/youtube/v3/playlistItems"
+        f"?key={YT_API_KEY}&playlistId={uploads_playlist_id}"
+        f"&part=snippet&maxResults={max_results}"
     )
     if page_token:
         url += f"&pageToken={page_token}"
@@ -164,15 +195,28 @@ def get_videos():
             return jsonify({"error": err.get("message", "YouTube API error"), "details": err}), r.status_code
 
         items = []
+        seen_ids = set()
+        seen_titles = set()
         for item in data.get("items", []):
-            vid = item.get("id", {}).get("videoId")
             sn = item.get("snippet", {})
-            if not vid:
+            vid = sn.get("resourceId", {}).get("videoId")
+            title = sn.get("title", "").strip()
+            # Filtrar items sin videoId o videos privados / eliminados
+            if not vid or title in ("Private video", "Deleted video"):
                 continue
+            
+            # Normalizar título para desduplicar reconexiones de transmisiones en vivo
+            norm_title = re.sub(r'[\s|Il\-_:]+', ' ', title.lower()).strip()
+            if vid in seen_ids or (norm_title and norm_title in seen_titles):
+                continue
+            seen_ids.add(vid)
+            if norm_title:
+                seen_titles.add(norm_title)
+
             items.append({
                 "id": vid,
-                "title": sn.get("title", ""),
-                "thumbnail": (sn.get("thumbnails", {}).get("high") or sn.get("thumbnails", {}).get("medium") or {}).get("url", ""),
+                "title": title,
+                "thumbnail": (sn.get("thumbnails", {}).get("high") or sn.get("thumbnails", {}).get("medium") or sn.get("thumbnails", {}).get("default") or {}).get("url", ""),
                 "date": sn.get("publishedAt", ""),
                 "description": sn.get("description", ""),
             })
@@ -180,6 +224,7 @@ def get_videos():
             "items": items,
             "nextPageToken": data.get("nextPageToken", ""),
             "prevPageToken": data.get("prevPageToken", ""),
+            "totalResults": data.get("pageInfo", {}).get("totalResults", 0)
         })
     except Exception as e:
         return jsonify({"error": str(e), "items": []}), 500
@@ -193,32 +238,90 @@ def get_transcript():
         return jsonify({"error": "videoId required"}), 400
 
     last_error = None
-    # Intento 1: youtube_transcript_api (con proxy si hay PROXY_URL)
-    for attempt in range(2):
-        try:
-            from youtube_transcript_api import YouTubeTranscriptApi
-            proxy_config = get_proxy_config()
-            ytt_api = YouTubeTranscriptApi(proxy_config=proxy_config) if proxy_config else YouTubeTranscriptApi()
-            if proxy_config: print(f"Usando proxy para transcript: {PROXY_URL[:20]}...")
-            transcript = ytt_api.fetch(video_id, languages=["es", "en"])
-            text = " ".join([entry.text for entry in transcript.snippets])
-            if text:
-                return jsonify({"transcript": text, "source": "youtube_captions"})
-        except Exception as e:
-            last_error = str(e)
-            print(f"youtube_transcript_api failed (attempt {attempt+1}): {e}")
-            if attempt == 0:
-                time.sleep(1)
 
-    # Sin captions (video muy nuevo) -> no intentamos Whisper en Fly (lento + timeout)
-    # Whisper queda solo para uso local (ENABLE_WHISPER=1)
+    # Intento 1: youtube_transcript_api (rápido, soporta auto-generados y extrae timestamps exactos)
+    try:
+        from youtube_transcript_api import YouTubeTranscriptApi
+        proxy_config = get_proxy_config()
+        ytt_api = YouTubeTranscriptApi(proxy_config=proxy_config) if proxy_config else YouTubeTranscriptApi()
+        transcript = ytt_api.fetch(video_id, languages=["es", "es-419", "en"])
+        entries = [{"start": s.start, "duration": s.duration, "text": s.text} for s in transcript.snippets]
+        if entries:
+            return jsonify({
+                "transcript": " ".join([e["text"] for e in entries]),
+                "entries": entries,
+                "source": "youtube_transcript_api"
+            })
+    except Exception as e:
+        last_error = str(e)
+        print(f"youtube_transcript_api attempt failed: {e}")
+
+    # Intento 2: Parse YouTube page HTML to extract caption track URLs
+    try:
+        import re, json as _json
+        page_url = f"https://www.youtube.com/watch?v={video_id}"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        }
+        resp = requests.get(page_url, headers=headers, timeout=15)
+        if resp.status_code == 200:
+            html = resp.text
+            m = re.search(r'ytInitialPlayerResponse\s*=\s*(\{.+?\});', html)
+            if m:
+                player = _json.loads(m.group(1))
+                captions = player.get("captions", {}).get("playerCaptionsTracklistRenderer", {}).get("captionTracks", [])
+                if captions:
+                    track = None
+                    for t in captions:
+                        if t.get("languageCode", "").startswith("es"):
+                            track = t
+                            break
+                    if not track:
+                        for t in captions:
+                            if t.get("languageCode", "").startswith("en"):
+                                track = t
+                                break
+                    if not track:
+                        track = captions[0]
+                    base_url = track.get("baseUrl", "")
+                    if base_url:
+                        cap_resp = requests.get(base_url + "&fmt=json3", headers=headers, timeout=15)
+                        if cap_resp.status_code == 200 and cap_resp.text.strip():
+                            cap_json = cap_resp.json()
+                            entries = []
+                            for ev in cap_json.get("events", []):
+                                segs = ev.get("segs", [])
+                                text = " ".join(s.get("utf8", "") for s in segs).strip()
+                                if text:
+                                    start = ev.get("tStartMs", 0) / 1000.0
+                                    entries.append({"start": start, "text": text})
+                            if entries:
+                                return jsonify({
+                                    "transcript": " ".join(e["text"] for e in entries),
+                                    "entries": entries,
+                                    "source": "youtube_page_parse"
+                                })
+                        else:
+                            last_error = f"Caption download empty or HTTP {cap_resp.status_code}"
+                else:
+                    last_error = "No caption tracks found in player response"
+            else:
+                last_error = "ytInitialPlayerResponse not found in page"
+        else:
+            last_error = f"YouTube page HTTP {resp.status_code}"
+    except Exception as e:
+        last_error = str(e)
+        print(f"Page parse transcript failed: {e}")
+
     if os.getenv("ENABLE_WHISPER") == "1":
         print(f"Fallback a Whisper para {video_id}...")
         whisper_text = transcribe_with_whisper(video_id)
         if whisper_text:
             return jsonify({"transcript": whisper_text, "source": "whisper"})
 
-    return jsonify({"transcript": None, "error": last_error or "Transcripcion aun no disponible. YouTube la genera en 2-6h. Prueba mas tarde o genera estudio desde el titulo."}), 500
+    return jsonify({"transcript": None, "error": last_error or "Transcripcion no disponible."}), 500
 
 
 # Compatibilidad: usado por /api/study y /api/quiz cuando no viene transcript
@@ -229,12 +332,43 @@ def _get_transcript_text(video_id):
         from youtube_transcript_api import YouTubeTranscriptApi
         proxy_config = get_proxy_config()
         ytt_api = YouTubeTranscriptApi(proxy_config=proxy_config) if proxy_config else YouTubeTranscriptApi()
-        transcript = ytt_api.fetch(video_id, languages=["es", "en"])
+        transcript = ytt_api.fetch(video_id, languages=["es", "es-419", "en"])
         text = " ".join([entry.text for entry in transcript.snippets])
         if text:
             return text
     except Exception as e:
         print(f"_get_transcript_text youtube_transcript_api failed: {e}")
+
+    # Fallback parse pagina
+    try:
+        import re, json as _json
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+        }
+        resp = requests.get(f"https://www.youtube.com/watch?v={video_id}", headers=headers, timeout=15)
+        if resp.status_code == 200:
+            m = re.search(r'ytInitialPlayerResponse\s*=\s*(\{.+?\});', resp.text)
+            if m:
+                player = _json.loads(m.group(1))
+                captions = player.get("captions", {}).get("playerCaptionsTracklistRenderer", {}).get("captionTracks", [])
+                if captions:
+                    track = next((t for t in captions if t.get("languageCode", "").startswith("es")), captions[0])
+                    base_url = track.get("baseUrl", "")
+                    if base_url:
+                        cap_resp = requests.get(base_url + "&fmt=json3", headers=headers, timeout=15)
+                        if cap_resp.status_code == 200 and cap_resp.text.strip():
+                            cap_json = cap_resp.json()
+                            texts = []
+                            for ev in cap_json.get("events", []):
+                                text = " ".join(s.get("utf8", "") for s in ev.get("segs", [])).strip()
+                                if text:
+                                    texts.append(text)
+                            if texts:
+                                return " ".join(texts)
+    except Exception as e:
+        print(f"_get_transcript_text page parse failed: {e}")
+
     if os.getenv("ENABLE_WHISPER") == "1":
         return transcribe_with_whisper(video_id)
     return None

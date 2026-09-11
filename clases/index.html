@@ -7,6 +7,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0a0f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="logos/logo vc.png">
 </head>
 <body>
     <nav class="navbar" id="navbar">
@@ -35,6 +40,19 @@
             <div class="hero-buttons">
                 <a href="predicaciones.html" class="btn btn-primary">Empezar a estudiar</a>
                 <a href="tests.html" class="btn btn-outline">Hacer un test</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="section section-dashboard" id="dashboardSection">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Tu Progreso</span>
+                <h2 class="section-title">Panel de Aprendizaje</h2>
+                <div class="section-line"></div>
+            </div>
+            <div id="progressDashboardContainer">
+                <div class="loading"><div class="loading-spinner"></div><p>Cargando tu progreso...</p></div>
             </div>
         </div>
     </section>
@@ -115,32 +133,44 @@
         </div>
     </footer>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=2.3.0"></script>
     <script>
         initNavbar();
         window.addEventListener('scroll', () => {
             document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 50);
         });
 
-        fetchYouTubeVideos(4).then(videos => {
+        fetchYouTubeVideos(50).then(({ items: videos }) => {
+            // Renderizar Dashboard de Progreso
+            renderProgressDashboard('progressDashboardContainer', videos);
+
+            // Renderizar 4 Predicaciones Recientes en portada
+            const homeVideos = (videos || []).slice(0, 4);
             const grid = document.getElementById('homeSermons');
-            grid.innerHTML = videos.map((v, i) => `
-                <a href="estudio.html?id=${v.id}" class="sermon-card" aria-label="Estudiar ${v.title.replace(/"/g, '&quot;')}">
+            grid.innerHTML = homeVideos.map((v, i) => {
+                const badges = getSermonBadges(v.id, i, false);
+                return `
+                <a href="estudio.html?id=${v.id}" class="sermon-card" aria-label="Estudiar ${escapeHtml(v.title)}">
                     <div class="sermon-thumb">
-                        <img src="${v.thumbnail}" alt="${v.title.replace(/"/g, '&quot;')}" loading="lazy" width="480" height="270">
+                        <img src="${v.thumbnail}" alt="${escapeHtml(v.title)}" loading="lazy" width="480" height="270">
                         <div class="sermon-play" aria-hidden="true">
                             <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                         </div>
-                        ${i === 0 ? '<span class="sermon-badge">Reciente</span>' : ''}
+                        ${badges}
                     </div>
                     <div class="sermon-info">
                         <h3>${escapeHtml(v.title)}</h3>
                         <p>${escapeHtml(v.date)}</p>
                     </div>
                 </a>
-            `).join('');
+            `;
+            }).join('');
         }).catch(err => {
             const isQuota = err && err.message === 'quotaExceeded';
+            const dashEl = document.getElementById('progressDashboardContainer');
+            if (dashEl) {
+                renderProgressDashboard('progressDashboardContainer', []);
+            }
             document.getElementById('homeSermons').innerHTML = isQuota
                 ? '<div class="empty-state"><h3>Cuota alcanzada</h3><p>Limite diario de YouTube. Recarga mas tarde — se usa cache local.</p></div>'
                 : '<div class="empty-state"><h3>Error al cargar</h3><p>No se pudieron cargar las predicaciones. Verifica que el servidor este corriendo en localhost:5000.</p></div>';

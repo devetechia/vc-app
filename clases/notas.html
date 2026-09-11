@@ -7,6 +7,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0a0f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="logos/logo vc.png">
 </head>
 <body>
     <nav class="navbar scrolled" id="navbar">
@@ -35,6 +40,43 @@
                 <p class="section-desc">Todos tus apuntes personales organizados por predicacion.</p>
             </div>
 
+            <div class="notes-controls" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px;">
+                <div class="search-bar" style="flex:1; min-width:200px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    <input type="text" id="noteSearch" placeholder="Buscar apunte..." aria-label="Buscar apunte" style="width:100%;">
+                    <button id="noteSearchClear" aria-label="Limpiar busqueda" style="display:none; position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:18px;">×</button>
+                </div>
+                <label for="noteSort" style="font-size:0.85rem; color:var(--text-muted); white-space:nowrap;">Orden:</label>
+                <select id="noteSort" class="btn btn-outline btn-sm" style="padding:6px 12px; min-width:140px;" aria-label="Orden de apuntes">
+                    <option value="date-desc">Mas recientes</option>
+                    <option value="date-asc">Mas antiguos</option>
+                    <option value="title-asc">Titulo A-Z</option>
+                    <option value="title-desc">Titulo Z-A</option>
+                </select>
+            </div>
+
+            <div class="notes-backup-bar">
+                <div class="backup-label">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                    <span>Copia de seguridad y exportación:</span>
+                </div>
+                <div class="backup-actions">
+                    <button id="btnExportMd" class="btn btn-outline btn-sm" title="Descargar todas las notas en formato Markdown (.md)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Descargar Markdown (.md)
+                    </button>
+                    <button id="btnExportJson" class="btn btn-outline btn-sm" title="Descargar copia de seguridad completa con notas, historial y progresos">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Exportar JSON
+                    </button>
+                    <label for="importJsonInput" class="btn btn-outline btn-sm" style="margin:0; cursor:pointer;" title="Restaurar copia de seguridad desde un archivo .json">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        Restaurar Copia
+                    </label>
+                    <input type="file" id="importJsonInput" accept=".json" style="display:none;">
+                </div>
+            </div>
+
             <div class="notes-list" id="notesList"></div>
         </div>
     </div>
@@ -45,11 +87,13 @@
         </div>
     </footer>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=2.4.0"></script>
     <script>
         initNavbar();
         function renderNotes() {
             const notes = getNotes();
+            const search = document.getElementById('noteSearch')?.value.toLowerCase().trim() || '';
+            const sort = document.getElementById('noteSort')?.value || 'date-desc';
             const container = document.getElementById('notesList');
             const keys = Object.keys(notes);
 
@@ -58,18 +102,48 @@
                 return;
             }
 
-            const allNotes = keys.map(k => ({ videoId: k, ...notes[k] })).sort((a, b) => new Date(b.date) - new Date(a.date));
+            let allNotes = keys.map(k => ({ videoId: k, ...notes[k] }));
+
+            // Filtrar por búsqueda (título o contenido)
+            if (search) {
+                const searchNorm = typeof normalizeSearchStr === 'function' ? normalizeSearchStr(search) : search.toLowerCase().trim();
+                allNotes = allNotes.filter(n => {
+                    const titleNorm = typeof normalizeSearchStr === 'function' ? normalizeSearchStr(n.title) : (n.title || '').toLowerCase();
+                    const textNorm = typeof normalizeSearchStr === 'function' ? normalizeSearchStr(n.text) : (n.text || '').toLowerCase();
+                    return titleNorm.includes(searchNorm) || textNorm.includes(searchNorm);
+                });
+            }
+
+            // Ordenar
+            if (sort === 'date-desc') allNotes.sort((a, b) => new Date(b.date) - new Date(a.date));
+            else if (sort === 'date-asc') allNotes.sort((a, b) => new Date(a.date) - new Date(b.date));
+            else if (sort === 'title-asc') allNotes.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'es', { sensitivity: 'base' }));
+            else if (sort === 'title-desc') allNotes.sort((a, b) => (b.title || '').localeCompare(a.title || '', 'es', { sensitivity: 'base' }));
+
+            if (!allNotes.length && search) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h3>Sin coincidencias</h3>
+                        <p>No se encontraron notas con el término "<strong>${escapeHtml(search)}</strong>".</p>
+                    </div>`;
+                return;
+            }
 
             container.innerHTML = allNotes.map(n => {
                 const date = new Date(n.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-                let preview = n.text.trim();
+                let preview = n.text?.trim() || '';
                 if (preview.length > 120) {
                     preview = preview.slice(0, 120).split(' ').slice(0, -1).join(' ') + '...';
                 }
+                const displayTitle = n.title?.trim() || preview;
+                const renderedTitle = typeof highlightMatches === 'function' && search ? highlightMatches(displayTitle, search) : escapeHtml(displayTitle);
+                const renderedPreview = typeof highlightMatches === 'function' && search ? highlightMatches(preview, search) : escapeHtml(preview);
+
                 return `
                     <div class="note-item">
                         <div class="note-info" style="flex:1; cursor:pointer;" onclick="window.location.href='estudio.html?id=${n.videoId}'" role="button" tabindex="0" aria-label="Abrir estudio">
-                            <h4>${escapeHtml(preview)}</h4>
+                            <h4>${renderedTitle}</h4>
+                            ${n.title?.trim() ? `<p style="color:var(--text-secondary); font-size:0.85rem; margin-bottom:4px;">${renderedPreview}</p>` : ''}
                             <p>${escapeHtml(date)}</p>
                         </div>
                         <div class="note-actions">
@@ -87,6 +161,78 @@
                 renderNotes();
                 showToast('Apunte eliminado');
             }
+        }
+
+        // Búsqueda en tiempo real con debounce
+        const noteSearch = document.getElementById('noteSearch');
+        const noteSearchClear = document.getElementById('noteSearchClear');
+        if (noteSearch) {
+            let searchTimeout;
+            noteSearch.addEventListener('input', () => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    noteSearchClear.style.display = noteSearch.value ? 'block' : 'none';
+                    renderNotes();
+                }, 150);
+            });
+        }
+        if (noteSearchClear) {
+            noteSearchClear.addEventListener('click', () => {
+                noteSearch.value = '';
+                noteSearchClear.style.display = 'none';
+                renderNotes();
+                noteSearch.focus();
+            });
+        }
+
+        // Ordenar al cambiar select
+        const noteSort = document.getElementById('noteSort');
+        if (noteSort) {
+            noteSort.addEventListener('change', renderNotes);
+        }
+
+        // Exportar a Markdown
+        const btnExportMd = document.getElementById('btnExportMd');
+        if (btnExportMd) {
+            btnExportMd.addEventListener('click', () => {
+                const notes = getNotes();
+                if (!Object.keys(notes).length) {
+                    showToast('No tienes apuntes para exportar');
+                    return;
+                }
+                exportNotesMarkdown();
+                showToast('Descargando archivo Markdown...');
+            });
+        }
+
+        // Exportar a JSON
+        const btnExportJson = document.getElementById('btnExportJson');
+        if (btnExportJson) {
+            btnExportJson.addEventListener('click', () => {
+                exportBackupJSON();
+                showToast('Descargando copia de seguridad JSON...');
+            });
+        }
+
+        // Restaurar Copia JSON
+        const importJsonInput = document.getElementById('importJsonInput');
+        if (importJsonInput) {
+            importJsonInput.addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const result = importBackupJSON(event.target.result);
+                    if (result.success) {
+                        renderNotes();
+                        showToast(`Copia restaurada: ${result.notesCount} apuntes importados`);
+                    } else {
+                        alert('Error al restaurar copia: ' + (result.error || 'Formato no válido'));
+                    }
+                    importJsonInput.value = '';
+                };
+                reader.readAsText(file);
+            });
         }
 
         renderNotes();
