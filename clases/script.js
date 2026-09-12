@@ -210,7 +210,16 @@ async function getYouTubeTranscript(videoId) {
         console.warn('Server transcript error:', e);
     }
 
-    // 2. Fallback: extraer captions desde el navegador del usuario
+    // 2. Fetch captions desde el navegador del usuario (IP residencial)
+    try {
+        const entries = await _getTranscriptFromPage(videoId);
+        if (entries && entries.length) {
+            try { setCachedTranscript(videoId, entries); } catch {}
+            return entries;
+        }
+    } catch (e) { console.warn('Page fetch transcript fallo:', e.message); }
+
+    // 3. Fallback: IFrame API (solo funciona en Chrome)
     try {
         const entries = await _getTranscriptViaPlayer(videoId);
         if (entries && entries.length) {
@@ -220,6 +229,47 @@ async function getYouTubeTranscript(videoId) {
     } catch (e) { console.warn('Client transcript fallo:', e.message); }
 
     return null;
+}
+
+async function _getTranscriptFromPage(videoId) {
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}`;
+    const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(20000) });
+    if (!res.ok) throw new Error('Proxy fetch failed: ' + res.status);
+    const html = await res.text();
+
+    const playerMatch = html.match(/var ytInitialPlayerResponse\s*=\s*(\{.*?\});/s)
+        || html.match(/ytInitialPlayerResponse\s*=\s*(\{.*?\});/s);
+    if (!playerMatch) throw new Error('No player response found');
+
+    const player = JSON.parse(playerMatch[1]);
+    const captions = player?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    if (!captions || !captions.length) throw new Error('No caption tracks');
+
+    const track = captions.find(t => t.languageCode === 'es')
+        || captions.find(t => t.languageCode?.startsWith('es'))
+        || captions[0];
+    if (!track?.baseUrl) throw new Error('No caption URL');
+
+    let captionData = null;
+    try {
+        const captionRes = await fetch(track.baseUrl + '&fmt=json3', { signal: AbortSignal.timeout(10000) });
+        if (captionRes.ok) captionData = await captionRes.json();
+    } catch {}
+    if (!captionData) {
+        const proxyCaptionUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(track.baseUrl + '&fmt=json3')}`;
+        const captionRes = await fetch(proxyCaptionUrl, { signal: AbortSignal.timeout(15000) });
+        if (!captionRes.ok) throw new Error('Caption fetch failed');
+        captionData = await captionRes.json();
+    }
+
+    const entries = [];
+    for (const ev of (captionData.events || [])) {
+        if (!ev.segs) continue;
+        const text = ev.segs.map(s => s.utf8 || '').join(' ').trim();
+        if (text) entries.push({ start: ev.tStartMs ? ev.tStartMs / 1000 : 0, text });
+    }
+    if (!entries.length) throw new Error('No entries parsed');
+    return entries;
 }
 
 function _getTranscriptViaPlayer(videoId) {
