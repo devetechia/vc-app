@@ -1,18 +1,10 @@
-FROM python:3.11-bullseye
-
-# ffmpeg + deno (para yt-dlp JS challenge)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg curl unzip && \
-    curl -fsSL https://deno.land/install.sh | sh && \
-    cp /root/.deno/bin/deno /usr/local/bin/deno && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+FROM python:3.11-bookworm
 
 WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar aplicación completa (backend Flask + frontend estático PWA)
 COPY . .
 
 ENV PORT=8080
