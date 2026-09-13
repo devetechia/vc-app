@@ -239,7 +239,28 @@ def get_transcript():
     if not video_id:
         return jsonify({"error": "videoId required"}), 400
 
+    # Cache simple en disco (24h)
+    cache_dir = Path(tempfile.gettempdir()) / "transcript_cache"
+    cache_dir.mkdir(exist_ok=True)
+    cache_file = cache_dir / f"{video_id}.json"
+    if cache_file.exists():
+        try:
+            import json as _json_cache
+            cached = _json_cache.loads(cache_file.read_text(encoding="utf-8"))
+            if time.time() - cached.get("ts", 0) < 86400:
+                print(f"Transcript cache hit para {video_id}")
+                return jsonify(cached["data"])
+        except Exception:
+            pass
+
     last_error = None
+
+    def _cache_and_return(data):
+        try:
+            cache_file.write_text(__import__('json').dumps({"ts": time.time(), "data": data}, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
+        return jsonify(data)
 
     # Intento 1: youtube_transcript_api (rápido, soporta auto-generados y extrae timestamps exactos)
     try:
@@ -249,7 +270,7 @@ def get_transcript():
         transcript = ytt_api.fetch(video_id, languages=["es", "es-419", "en"])
         entries = [{"start": s.start, "duration": s.duration, "text": s.text} for s in transcript.snippets]
         if entries:
-            return jsonify({
+            return _cache_and_return({
                 "transcript": " ".join([e["text"] for e in entries]),
                 "entries": entries,
                 "source": "youtube_transcript_api"
@@ -300,7 +321,7 @@ def get_transcript():
                                     start = ev.get("tStartMs", 0) / 1000.0
                                     entries.append({"start": start, "text": text})
                             if entries:
-                                return jsonify({
+                                return _cache_and_return({
                                     "transcript": " ".join(e["text"] for e in entries),
                                     "entries": entries,
                                     "source": "youtube_page_parse"
@@ -316,6 +337,63 @@ def get_transcript():
     except Exception as e:
         last_error = str(e)
         print(f"Page parse transcript failed: {e}")
+
+    # Intento 3: yt-dlp subtitle extraction (designed to bypass YouTube anti-bot)
+    try:
+        import yt_dlp as _ytdlp
+        print(f"Intentando yt-dlp para {video_id}...")
+        sub_opts = {
+            'skip_download': True,
+            'writesubtitles': True,
+            'writeautomaticsub': True,
+            'subtitleslangs': ['es', 'es-419', 'en'],
+            'subtitlesformat': 'json3',
+            'quiet': True,
+            'no_warnings': True,
+            'socket_timeout': 30,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+            },
+        }
+        if Path("cookies.txt").exists():
+            sub_opts['cookiefile'] = 'cookies.txt'
+        elif os.getenv("COOKIES_TXT"):
+            Path("cookies.txt").write_text(os.getenv("COOKIES_TXT"), encoding="utf-8")
+            sub_opts['cookiefile'] = 'cookies.txt'
+
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        with _ytdlp.YoutubeDL(sub_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            subs = info.get('subtitles') or {}
+            auto_subs = info.get('automatic_captions') or {}
+            track = subs.get('es-orig') or subs.get('es') or subs.get('es-419') or auto_subs.get('es-orig') or auto_subs.get('es') or auto_subs.get('es-419') or subs.get('en') or auto_subs.get('en')
+            if track:
+                fmt = next((f for f in track if f.get('ext') == 'json3'), track[0])
+                sub_url = fmt.get('url', '')
+                if sub_url:
+                    cap_resp = requests.get(sub_url, timeout=15)
+                    if cap_resp.status_code == 200:
+                        cap_json = cap_resp.json()
+                        entries = []
+                        for ev in cap_json.get("events", []):
+                            segs = ev.get("segs", [])
+                            text = " ".join(s.get("utf8", "") for s in segs).strip()
+                            if text:
+                                start = ev.get("tStartMs", 0) / 1000.0
+                                entries.append({"start": start, "text": text})
+                        if entries:
+                            return _cache_and_return({
+                                "transcript": " ".join(e["text"] for e in entries),
+                                "entries": entries,
+                                "source": "yt-dlp"
+                            })
+                last_error = "yt-dlp: subtitle URL empty"
+            else:
+                last_error = "yt-dlp: no subtitle tracks found"
+    except Exception as e:
+        last_error = str(e)
+        print(f"yt-dlp transcript failed: {e}")
 
     if os.getenv("ENABLE_WHISPER") == "1":
         print(f"Fallback a Whisper para {video_id}...")
