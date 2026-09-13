@@ -73,7 +73,17 @@ def bible_study():
 
 @app.route('/<path:path>')
 def static_files(path):
-    return send_from_directory('.', path)
+    # Prevent interference with API routes
+    if path.startswith('api/'):
+        return jsonify({'error': 'Not found'}), 404
+    
+    # Check if the requested path is an actual file
+    file_path = os.path.join(app.static_folder, path)
+    if path != "" and os.path.isfile(file_path):
+        return send_from_directory(app.static_folder, path)
+    else:
+        # For all other routes, serve index.html (enables client-side routing)
+        return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
