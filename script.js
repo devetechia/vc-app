@@ -229,36 +229,7 @@ function initPastorVideo() {
 
 // ===== BIBLICAL STUDY =====
 async function getYouTubeTranscript(videoId) {
-    try {
-        const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}`;
-        const res = await fetch(proxyUrl);
-        const html = await res.text();
-
-        const match = html.match(/"captions":\s*(\{.*?"playerCaptionsTracklistRenderer".*?\})\s*,\s*"videoDetails"/s);
-        if (match) {
-            const captionsData = JSON.parse(match[1]);
-            const tracks = captionsData?.playerCaptionsTracklistRenderer?.captionTracks;
-            if (tracks && tracks.length > 0) {
-                const langTrack = tracks.find(t => t.languageCode === 'es') || tracks[0];
-                const captionUrl = langTrack.baseUrl;
-
-                const captionRes = await fetch(captionUrl);
-                const captionXml = await captionRes.text();
-
-                const texts = [];
-                const regex = /<text[^>]*>(.*?)<\/text>/g;
-                let m;
-                while ((m = regex.exec(captionXml)) !== null) {
-                    texts.push(m[1].replace(/&/g, '&').replace(/'/g, "'").replace(/"/g, '"').replace(/<[^>]*>/g, ''));
-                }
-                return texts.join(' ') || null;
-            }
-        }
-        return null;
-    } catch (error) {
-        console.error('Error getting transcript:', error);
-        return null;
-    }
+    return null;
 }
 
 async function analyzeWithGemini(transcript, videoTitle) {
