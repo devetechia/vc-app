@@ -229,7 +229,14 @@ function initPastorVideo() {
 
 // ===== BIBLICAL STUDY =====
 async function getYouTubeTranscript(videoId) {
-    return null;
+    try {
+        const res = await fetch(`/api/transcript?videoId=${encodeURIComponent(videoId)}`);
+        const data = await res.json();
+        return data.transcript || null;
+    } catch (error) {
+        console.error('Error getting transcript:', error);
+        return null;
+    }
 }
 
 async function analyzeWithGemini(transcript, videoTitle) {
