@@ -1,14 +1,19 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from youtube_transcript_api import YouTubeTranscriptApi
 import requests
 import json
+import os
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='.', static_url_path='')
 CORS(app)
 
-GROK_API_KEY = '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'
+GROK_API_KEY = '«redacted:sk-…»'
 GROK_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
+
+@app.route('/')
+def index():
+    return send_from_directory('.', 'index.html')
 
 @app.route('/api/transcript')
 def get_transcript():
@@ -29,27 +34,20 @@ def bible_study():
     transcript = data.get('transcript', '')
     title = data.get('title', '')
 
-    prompt = f"""Eres un experto en estudios bíblicos. Analiza la siguiente predicación cristiana y proporciona:
-
-1. RESUMEN: Un resumen claro y conciso (3-4 párrafos)
-
-2. MENSAJE PRINCIPAL: El mensaje central más importante
-
-3. VERSÍCULOS MENCIONADOS: Lista cada versículo con:
-   - Referencia completa (Libro Capítulo:Versículo)
-   - El texto del versículo
-   - Por qué se mencionó en la predicación
-
-4. CONTEXTO Y EXPLICACIÓN: Contexto histórico y espiritual
-
-5. PARA PROFUNDIZAR: Temas para estudio personal
-
-Título: {title}
-
-Transcripción:
-{transcript or 'No disponible. Analiza solo por el título: ' + title}
-
-Responde en español con secciones claras usando markdown."""
+    prompt = (
+        "Eres un experto en estudios bíblicos. Analiza la siguiente predicación cristiana y proporciona:\n\n"
+        "1. RESUMEN: Un resumen claro y conciso (3-4 párrafos)\n\n"
+        "2. MENSAJE PRINCIPAL: El mensaje central más importante\n\n"
+        "3. VERSÍCULOS MENCIONADOS: Lista cada versículo con:\n"
+        "   - Referencia completa (Libro Capítulo:Versículo)\n"
+        "   - El texto del versículo\n"
+        "   - Por qué se mencionó en la predicación\n\n"
+        "4. CONTEXTO Y EXPLICACIÓN: Contexto histórico y espiritual\n\n"
+        "5. PARA PROFUNDIZAR: Temas para estudio personal\n\n"
+        f"Título: {title}\n\n"
+        f"Transcripción:\n{transcript or 'No disponible. Analiza solo por el título: ' + title}\n\n"
+        "Responde en español con secciones claras usando markdown."
+    )
 
     try:
         response = requests.post(
@@ -73,5 +71,10 @@ Responde en español con secciones claras usando markdown."""
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/<path:path>')
+def static_files(path):
+    return send_from_directory('.', path)
+
 if __name__ == '__main__':
-    app.run(port=5000, debug=False)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)

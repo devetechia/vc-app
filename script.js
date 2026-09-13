@@ -1,7 +1,7 @@
 // ===== YOUTUBE API CONFIG =====
-const YT_API_KEY = 'AIzaSyBcbSSyNgUn5yiVxQJ0-yTUj1eVEU1dCu8';
+const YT_API_KEY = '«redacted:AIza…»';
 const YT_CHANNEL_ID = 'UCRpj-vU_Nu6UaxJJvGI7jAA';
-const OPENROUTER_KEY = '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';
+const OPENROUTER_KEY = '«redacted:sk-…»';
 
 async function fetchLatestVideos(maxResults = 4) {
     const url = `https://www.googleapis.com/youtube/v3/search?key=${YT_API_KEY}&channelId=${YT_CHANNEL_ID}&part=snippet&order=date&maxResults=${maxResults}&type=video`;
@@ -12,18 +12,17 @@ async function fetchLatestVideos(maxResults = 4) {
 
 function loadSermons() {
     const grid = document.querySelector('.sermons-grid');
-    if (!grid) return;
+    if (grid) {
+        fetchLatestVideos(4).then(videos => {
+            if (!videos || videos.length === 0) return;
 
-    fetchLatestVideos(4).then(videos => {
-        if (!videos || videos.length === 0) return;
-
-        grid.innerHTML = videos.map((item, i) => {
-            const id = item.id.videoId;
-            const title = item.snippet.title;
-            const thumb = item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url;
-            const date = new Date(item.snippet.publishedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
-            const safeTitle = title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            return `
+            grid.innerHTML = videos.map((item, i) => {
+                const id = item.id.videoId;
+                const title = item.snippet.title;
+                const thumb = item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url;
+                const date = new Date(item.snippet.publishedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+                const safeTitle = title.replace(/'/g, "\\'").replace(/"/g, '"');
+                return `
                 <div class="sermon-card reveal visible" data-video="${id}">
                     <div class="sermon-thumb">
                         <img src="${thumb}" alt="${safeTitle}" loading="lazy">
@@ -41,21 +40,22 @@ function loadSermons() {
                             Estudio bíblico
                         </button>
                     </div>
-                </div>`;
-        }).join('');
+                </div>`
+            }).join('');
 
-        // Attach study button events
-        document.querySelectorAll('.btn-study[data-video-id]').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                openBibleStudy(btn.dataset.videoId, btn.dataset.videoTitle);
+            // Attach study button events
+            document.querySelectorAll('.btn-study[data-video-id]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openBibleStudy(btn.dataset.videoId, btn.dataset.videoTitle);
+                });
             });
-        });
 
-        initSermonClicks();
-    }).catch(err => {
-        console.error('Error loading sermons:', err);
-    });
+            initSermonClicks();
+        }).catch(err => {
+            console.error('Error loading sermons:', err);
+        });
+    }
 }
 
 function initSermonClicks() {
@@ -67,23 +67,22 @@ function initSermonClicks() {
             if (card.classList.contains('playing')) {
                 card.classList.remove('playing');
                 embedDiv.innerHTML = '';
-                return;
+            } else {
+                document.querySelectorAll('.sermon-card.playing').forEach(c => {
+                    c.classList.remove('playing');
+                    c.querySelector('.sermon-embed').innerHTML = '';
+                });
+
+                embedDiv.innerHTML = `<iframe 
+                    src="https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0" 
+                    title="Predicación" 
+                    allow="picture-in-picture" 
+                    allowfullscreen>
+                </iframe>`;
+
+                card.classList.add('playing');
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
-
-            document.querySelectorAll('.sermon-card.playing').forEach(c => {
-                c.classList.remove('playing');
-                c.querySelector('.sermon-embed').innerHTML = '';
-            });
-
-            embedDiv.innerHTML = `<iframe 
-                src="https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0" 
-                title="Predicación" 
-                allow="picture-in-picture" 
-                allowfullscreen>
-            </iframe>`;
-
-            card.classList.add('playing');
-            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
     });
 }
@@ -91,17 +90,18 @@ function initSermonClicks() {
 // ===== PARTICLES =====
 function createParticles() {
     const container = document.getElementById('particles');
-    if (!container) return;
-    const count = window.innerWidth < 768 ? 20 : 40;
-    for (let i = 0; i < count; i++) {
-        const p = document.createElement('div');
-        p.className = 'particle';
-        p.style.left = Math.random() * 100 + '%';
-        p.style.animationDelay = Math.random() * 8 + 's';
-        p.style.animationDuration = (6 + Math.random() * 6) + 's';
-        p.style.width = p.style.height = (2 + Math.random() * 3) + 'px';
-        if (Math.random() > 0.7) p.style.background = '#D4A843';
-        container.appendChild(p);
+    if (container) {
+        const count = window.innerWidth < 768 ? 20 : 40;
+        for (let i = 0; i < count; i++) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.style.left = Math.random() * 100 + '%';
+            p.style.animationDelay = Math.random() * 8 + 's';
+            p.style.animationDuration = (6 + Math.random() * 6) + 's';
+            p.style.width = p.style.height = (2 + Math.random() * 3) + 'px';
+            if (Math.random() > 0.7) p.style.background = '#D4A843';
+            container.appendChild(p);
+        }
     }
 }
 
@@ -137,7 +137,7 @@ function initNavbar() {
         let current = '';
         sections.forEach(section => {
             const top = section.offsetTop - 100;
-            if (window.scrollY >= top) {
+            if (scrollY >= top) {
                 current = section.getAttribute('id');
             }
         });
@@ -214,16 +214,16 @@ function initPastorVideo() {
 
     cards.forEach(card => {
         const video = card.querySelector('.pastor-video');
-        if (!video) return;
+        if (video) {
+            card.addEventListener('mouseenter', () => {
+                video.play().catch(() => {});
+            });
 
-        card.addEventListener('mouseenter', () => {
-            video.play().catch(() => {});
-        });
-
-        card.addEventListener('mouseleave', () => {
-            video.pause();
-            video.currentTime = 0;
-        });
+            card.addEventListener('mouseleave', () => {
+                video.pause();
+                video.currentTime = 0;
+            });
+        }
     });
 }
 
@@ -235,25 +235,26 @@ async function getYouTubeTranscript(videoId) {
         const html = await res.text();
 
         const match = html.match(/"captions":\s*(\{.*?"playerCaptionsTracklistRenderer".*?\})\s*,\s*"videoDetails"/s);
-        if (!match) return null;
+        if (match) {
+            const captionsData = JSON.parse(match[1]);
+            const tracks = captionsData?.playerCaptionsTracklistRenderer?.captionTracks;
+            if (tracks && tracks.length > 0) {
+                const langTrack = tracks.find(t => t.languageCode === 'es') || tracks[0];
+                const captionUrl = langTrack.baseUrl;
 
-        const captionsData = JSON.parse(match[1]);
-        const tracks = captionsData?.playerCaptionsTracklistRenderer?.captionTracks;
-        if (!tracks || tracks.length === 0) return null;
+                const captionRes = await fetch(captionUrl);
+                const captionXml = await captionRes.text();
 
-        const langTrack = tracks.find(t => t.languageCode === 'es') || tracks[0];
-        const captionUrl = langTrack.baseUrl;
-
-        const captionRes = await fetch(captionUrl);
-        const captionXml = await captionRes.text();
-
-        const texts = [];
-        const regex = /<text[^>]*>(.*?)<\/text>/g;
-        let m;
-        while ((m = regex.exec(captionXml)) !== null) {
-            texts.push(m[1].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/<[^>]*>/g, ''));
+                const texts = [];
+                const regex = /<text[^>]*>(.*?)<\/text>/g;
+                let m;
+                while ((m = regex.exec(captionXml)) !== null) {
+                    texts.push(m[1].replace(/&/g, '&').replace(/'/g, "'").replace(/"/g, '"').replace(/<[^>]*>/g, ''));
+                }
+                return texts.join(' ') || null;
+            }
         }
-        return texts.join(' ') || null;
+        return null;
     } catch (error) {
         console.error('Error getting transcript:', error);
         return null;
@@ -324,7 +325,7 @@ function parseAIResponse(text) {
 
     for (const line of lines) {
         const lower = line.toLowerCase();
-        
+
         if (lower.includes('resumen') && (lower.includes('##') || lower.includes('**'))) {
             if (currentSection && currentContent.length) {
                 sections[currentSection] = currentContent.join('\n').trim();
@@ -359,7 +360,7 @@ function parseAIResponse(text) {
             currentContent.push(line);
         }
     }
-    
+
     if (currentSection && currentContent.length) {
         sections[currentSection] = currentContent.join('\n').trim();
     }
@@ -385,21 +386,21 @@ let currentVideoTitle = '';
 function openBibleStudy(videoId, title) {
     currentVideoId = videoId;
     currentVideoTitle = title;
-    
+
     const modal = document.getElementById('bibleModal');
     const subtitle = document.getElementById('bibleModalSubtitle');
     const loading = document.getElementById('bibleLoading');
     const results = document.getElementById('bibleResults');
     const error = document.getElementById('bibleError');
-    
+
     subtitle.textContent = title;
     loading.style.display = 'block';
     results.style.display = 'none';
     error.style.display = 'none';
-    
+
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
-    
+
     startBibleStudy();
 }
 
@@ -411,12 +412,12 @@ function closeBibleStudy() {
 
 function renderStudyResults(aiResponse) {
     const parsed = parseAIResponse(aiResponse);
-    
+
     document.querySelector('#bibleSummary .bible-section-content').innerHTML = renderMarkdown(parsed.summary);
     document.querySelector('#bibleMessage .bible-section-content').innerHTML = renderMarkdown(parsed.message);
     document.querySelector('#bibleContext .bible-section-content').innerHTML = renderMarkdown(parsed.context);
     document.querySelector('#bibleStudy .bible-section-content').innerHTML = renderMarkdown(parsed.study);
-    
+
     const versesList = document.querySelector('#bibleVerses .bible-verses-list');
     const versesData = parsed.verses;
     if (Array.isArray(versesData) && versesData.length > 0) {
@@ -450,7 +451,7 @@ async function startBibleStudy() {
     const loading = document.getElementById('bibleLoading');
     const results = document.getElementById('bibleResults');
     const error = document.getElementById('bibleError');
-    
+
     try {
         // Check cache first
         const cached = getCachedStudy(currentVideoId);
@@ -458,25 +459,23 @@ async function startBibleStudy() {
             loading.style.display = 'none';
             renderStudyResults(cached);
             results.style.display = 'block';
-            return;
-        }
+        } else {
+            // Get transcript
+            loading.querySelector('p').textContent = 'Obteniendo transcripción del vídeo...';
+            const transcript = await getYouTubeTranscript(currentVideoId);
 
-        // Get transcript
-        loading.querySelector('p').textContent = 'Obteniendo transcripción del vídeo...';
-        const transcript = await getYouTubeTranscript(currentVideoId);
-        
-        // Analyze with AI
-        loading.querySelector('p').textContent = 'Analizando con inteligencia artificial...';
-        const aiResponse = await analyzeWithGemini(transcript, currentVideoTitle);
-        
-        // Cache the result
-        setCachedStudy(currentVideoId, aiResponse);
-        
-        // Render
-        loading.style.display = 'none';
-        renderStudyResults(aiResponse);
-        results.style.display = 'block';
-        
+            // Analyze with AI
+            loading.querySelector('p').textContent = 'Analizando con inteligencia artificial...';
+            const aiResponse = await analyzeWithGemini(transcript, currentVideoTitle);
+
+            // Cache the result
+            setCachedStudy(currentVideoId, aiResponse);
+
+            // Render
+            loading.style.display = 'none';
+            renderStudyResults(aiResponse);
+            results.style.display = 'block';
+        }
     } catch (err) {
         console.error('Error in Bible study:', err);
         loading.style.display = 'none';
@@ -498,14 +497,14 @@ function copyStudyResults() {
     const results = document.getElementById('bibleResults');
     const sections = results.querySelectorAll('.bible-section');
     let text = '';
-    
+
     sections.forEach(section => {
         const h3 = section.querySelector('h3');
         if (h3) text += h3.textContent + '\n\n';
-        
+
         const content = section.querySelector('.bible-section-content');
         if (content) text += content.innerText + '\n\n';
-        
+
         const verseCards = section.querySelectorAll('.bible-verse-card');
         verseCards.forEach(card => {
             const ref = card.querySelector('.bible-verse-ref');
@@ -516,7 +515,7 @@ function copyStudyResults() {
             if (explain) text += explain.textContent + '\n\n';
         });
     });
-    
+
     const btn = document.getElementById('btnCopyStudy');
     navigator.clipboard.writeText(text.trim()).then(() => {
         btn.textContent = '✅ Copiado';
