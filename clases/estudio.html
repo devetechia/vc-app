@@ -53,13 +53,13 @@
         </div>
 
         <div class="studio-tabs">
-            <button class="studio-tab active" data-tab="transcript">Transcripcion</button>
-            <button class="studio-tab" data-tab="study">Estudio Biblico</button>
+            <button class="studio-tab" data-tab="transcript" style="display:none;">Transcripcion</button>
+            <button class="studio-tab active" data-tab="study">Estudio Biblico</button>
             <button class="studio-tab" data-tab="notes">Apuntes</button>
         </div>
 
-        <!-- TRANSCRIPT PANEL -->
-        <div class="studio-panel active" id="panel-transcript">
+        <!-- TRANSCRIPT PANEL (oculto - solo funciona internamente para IA) -->
+        <div class="studio-panel" id="panel-transcript" style="display:none;">
             <div class="transcript-toolbar">
                 <label for="skipSlider" title="Descarta los primeros minutos (alabanza) para quedarte solo con la predicacion">Saltar intro (canciones):</label>
                 <input type="range" id="skipSlider" min="0" max="90" value="20" step="1" aria-label="Minutos a saltar de la intro">
@@ -69,13 +69,29 @@
             </div>
             <div class="transcript-content" id="transcriptContent">
                 <p style="color:var(--text-muted); text-align:center; padding:40px 0;">Ajusta los minutos de salto y haz click en "Cargar transcripcion".</p>
+                <div style="background:rgba(255,215,0,0.06); border:1px solid rgba(255,215,0,0.15); border-radius:8px; padding:12px; margin-top:12px; text-align:center;">
+                    <p style="color:var(--gold); font-size:0.85rem; margin:0 0 6px;">¿No carga automáticamente? Usa el bookmarklet</p>
+                    <a href="transcript-extractor.html" target="_blank" style="color:var(--purple-light); font-size:0.82rem; text-decoration:underline;">Instala el Extractor de Transcripciones</a>
+                    <span style="color:var(--text-muted); font-size:0.78rem;"> — Ve a YouTube → haz clic en el bookmarklet → pega aquí</span>
+                </div>
             </div>
             <div class="transcript-manual" id="transcriptManual" style="display:none; margin-top:16px;">
                 <div style="background:rgba(255,215,0,0.08); border:1px solid rgba(255,215,0,0.2); border-radius:8px; padding:16px; margin-bottom:12px;">
                     <p style="color:var(--gold); font-weight:600; margin-bottom:8px;">Transcripcion no disponible automaticamente</p>
-                    <p style="color:var(--text-muted); font-size:0.85rem; margin:0 0 8px;">YouTube requiere iniciar sesion para acceder a las transcripciones desde aplicaciones externas.</p>
+                    <p style="color:var(--text-muted); font-size:0.85rem; margin:0 0 8px;">YouTube requiere autenticación para acceder a las transcripciones desde servidores.</p>
                     <details style="margin-top:8px;">
-                        <summary style="color:var(--purple-light); cursor:pointer; font-size:0.85rem;">Como copiar la transcripcion de YouTube (paso a paso)</summary>
+                        <summary style="color:var(--purple-light); cursor:pointer; font-size:0.85rem;">📦 Método recomendado: Bookmarklet (1 clic)</summary>
+                        <div style="margin:8px 0 0 0;">
+                            <p style="color:var(--text-muted); font-size:0.83rem; line-height:1.6;">
+                                1. <a href="transcript-extractor.html" target="_blank" style="color:var(--gold);">Instala el Extractor de Transcripciones</a><br>
+                                2. Ve al video en YouTube<br>
+                                3. Haz clic en "Extraer Transcripción" en tu barra de marcadores<br>
+                                4. Vuelve aquí y pega con <code style="background:#1f2937; padding:1px 4px; border-radius:3px; color:#ffd700;">Ctrl+V</code>
+                            </p>
+                        </div>
+                    </details>
+                    <details style="margin-top:8px;">
+                        <summary style="color:var(--purple-light); cursor:pointer; font-size:0.85rem;">📋 Método manual: Copiar de YouTube</summary>
                         <ol style="color:var(--text-muted); font-size:0.83rem; margin:8px 0 0 16px; line-height:1.6;">
                             <li>Abre el video en <a href="#" id="linkOpenYT" target="_blank" style="color:var(--purple-light);">YouTube</a></li>
                             <li>Click en <b>... (Mas)</b> debajo del video</li>
@@ -105,7 +121,7 @@
         </div>
 
         <!-- STUDY PANEL -->
-        <div class="studio-panel" id="panel-study">
+        <div class="studio-panel active" id="panel-study">
             <div style="text-align:center; margin-bottom:24px;">
                 <button class="btn btn-primary" id="btnStartStudy">Generar Estudio Biblico</button>
             </div>
@@ -285,7 +301,9 @@
         document.getElementById('manualTranscript').addEventListener('paste', (e) => {
             setTimeout(() => {
                 const text = e.target.value.trim();
-                if (text.length > 50 && text.includes('[')) {
+                const looksLikeTranscript = (text.length > 100 && text.includes('[')) ||
+                    (text.length > 200 && (text.split('\n').length > 5 || text.split('.').length > 3));
+                if (looksLikeTranscript) {
                     document.getElementById('btnUseManual').click();
                 }
             }, 100);
@@ -386,6 +404,26 @@
             error.style.display = 'none';
             if (noTranscript) noTranscript.style.display = 'none';
 
+            // Auto-fetch transcript if not loaded yet
+            if (!rawEntries || rawEntries.length === 0) {
+                loading.style.display = 'block';
+                loading.querySelector('p').textContent = 'Obteniendo transcripcion...';
+                loading.querySelector('.loading-sub').textContent = 'Consultando YouTube...';
+                try {
+                    rawEntries = await getYouTubeTranscript(videoId);
+                    if (!rawEntries || rawEntries.length === 0) {
+                        loading.style.display = 'none';
+                        if (noTranscript) noTranscript.style.display = 'block';
+                        return;
+                    }
+                } catch (e) {
+                    console.error('Error fetching transcript:', e);
+                    loading.style.display = 'none';
+                    if (noTranscript) noTranscript.style.display = 'block';
+                    return;
+                }
+            }
+
             const text = rawEntries ? rawEntries.map(e => e.text).join(' ').trim() : '';
             if (!text) {
                 loading.style.display = 'none';
@@ -394,10 +432,10 @@
             }
 
             loading.style.display = 'block';
+            loading.querySelector('p').textContent = 'Analizando con IA...';
+            loading.querySelector('.loading-sub').textContent = 'Generando estudio biblico profundo...';
             try {
                 const title = document.getElementById('videoTitle').textContent;
-                loading.querySelector('p').textContent = 'Analizando con IA...';
-                loading.querySelector('.loading-sub').textContent = '';
                 const response = await generateBiblicalStudy(text, title, videoId);
                 if (text) setCachedStudy(videoId, response);
                 loading.style.display = 'none';

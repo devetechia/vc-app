@@ -13,11 +13,11 @@ try:
 except ImportError:
     pass
 
-# Soporte COOKIES_TXT como env var (para Fly.io secrets)
-if os.getenv("COOKIES_TXT") and not Path("cookies.txt").exists():
+# Soporte COOKIES_TXT como env var (para Fly.io secrets) - ALWAYS recreate on startup
+if os.getenv("COOKIES_TXT"):
     try:
         Path("cookies.txt").write_text(os.getenv("COOKIES_TXT"), encoding="utf-8")
-        print("cookies.txt creado desde env COOKIES_TXT")
+        print(f"cookies.txt creado desde env COOKIES_TXT ({len(os.getenv('COOKIES_TXT'))} bytes)")
     except Exception as e:
         print(f"No se pudo crear cookies.txt desde env: {e}")
 
@@ -58,6 +58,8 @@ OPENROUTER_KEY = os.getenv("OPENROUTER_KEY", "")
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "poolside/laguna-s-2.1:free")
 GROK_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 PROXY_URL = os.getenv("PROXY_URL", "")  # ej: http://user:pass@proxy.webshare.io:80
+SUPADATA_API_KEY = os.getenv("SUPADATA_API_KEY", "")
+TRANSCRIPTAPI_KEY = os.getenv("TRANSCRIPTAPI_KEY", "")
 
 # Validación de API Keys (ADR-001)
 if not YT_API_KEY:
@@ -239,7 +241,7 @@ def get_transcript():
     if not video_id:
         return jsonify({"error": "videoId required"}), 400
 
-    # Cache simple en disco (24h)
+    # Cache en disco (30 días - las transcripciones de YouTube no cambian)
     cache_dir = Path(tempfile.gettempdir()) / "transcript_cache"
     cache_dir.mkdir(exist_ok=True)
     cache_file = cache_dir / f"{video_id}.json"
@@ -247,7 +249,7 @@ def get_transcript():
         try:
             import json as _json_cache
             cached = _json_cache.loads(cache_file.read_text(encoding="utf-8"))
-            if time.time() - cached.get("ts", 0) < 86400:
+            if time.time() - cached.get("ts", 0) < 2592000:  # 30 días
                 print(f"Transcript cache hit para {video_id}")
                 return jsonify(cached["data"])
         except Exception:
@@ -395,6 +397,124 @@ def get_transcript():
         last_error = str(e)
         print(f"yt-dlp transcript failed: {e}")
 
+    # Intento 3.5: InnerTube iOS client (no PoToken required)
+    try:
+        print(f"Intentando InnerTube iOS client para {video_id}...")
+        innertube_payload = {
+            "context": {
+                "client": {
+                    "clientName": "IOS",
+                    "clientVersion": "19.45.4",
+                    "deviceMake": "Apple",
+                    "deviceModel": "iPhone16,2",
+                    "hl": "es",
+                    "gl": "ES",
+                    "osName": "iPhone",
+                    "osVersion": "18.1.0.22B83",
+                    "userAgent": "com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X;)"
+                }
+            },
+            "videoId": video_id,
+            "contentCheckOk": True,
+            "racyCheckOk": True
+        }
+        it_resp = requests.post(
+            "https://www.youtube.com/youtubei/v1/player?prettyPrint=false",
+            json=innertube_payload,
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X;)",
+            },
+            timeout=15
+        )
+        if it_resp.status_code == 200:
+            it_data = it_resp.json()
+            captions = it_data.get("captions", {}).get("playerCaptionsTracklistRenderer", {}).get("captionTracks", [])
+            if captions:
+                track = next((t for t in captions if t.get("languageCode", "").startswith("es")), captions[0])
+                base_url = track.get("baseUrl", "")
+                if base_url:
+                    cap_resp = requests.get(base_url + "&fmt=json3", timeout=15)
+                    if cap_resp.status_code == 200:
+                        cap_json = cap_resp.json()
+                        entries = []
+                        for ev in cap_json.get("events", []):
+                            segs = ev.get("segs", [])
+                            text = " ".join(s.get("utf8", "") for s in segs).strip()
+                            if text:
+                                start = ev.get("tStartMs", 0) / 1000.0
+                                entries.append({"start": start, "text": text})
+                        if entries:
+                            return _cache_and_return({
+                                "transcript": " ".join(e["text"] for e in entries),
+                                "entries": entries,
+                                "source": "innertube-ios"
+                            })
+                    last_error = "InnerTube: caption download failed"
+                else:
+                    last_error = "InnerTube: no baseUrl in caption track"
+            else:
+                last_error = "InnerTube: no caption tracks in player response"
+        else:
+            last_error = f"InnerTube: HTTP {it_resp.status_code}"
+    except Exception as e:
+        last_error = str(e)
+        print(f"InnerTube iOS transcript failed: {e}")
+
+    # Intento 4: Supadata API (100 gratis/mes, maneja PoToken)
+    if SUPADATA_API_KEY:
+        try:
+            print(f"Intentando Supadata API para {video_id}...")
+            sd_resp = requests.get(
+                f"https://api.supadata.ai/v1/youtube/transcript?videoId={video_id}&lang=es&text=true",
+                headers={"x-api-key": SUPADATA_API_KEY, "Content-Type": "application/json"},
+                timeout=30
+            )
+            if sd_resp.status_code == 200:
+                sd_data = sd_resp.json()
+                transcript_text = sd_data.get("content", "")
+                if transcript_text and isinstance(transcript_text, str) and len(transcript_text) > 10:
+                    return _cache_and_return({
+                        "transcript": transcript_text,
+                        "entries": [{"start": 0, "text": transcript_text}],
+                        "source": "supadata"
+                    })
+                last_error = "Supadata: empty or invalid response"
+            else:
+                last_error = f"Supadata: HTTP {sd_resp.status_code}"
+        except Exception as e:
+            last_error = str(e)
+            print(f"Supadata transcript failed: {e}")
+    else:
+        print("Supadata API key no configurada, saltando...")
+
+    # Intento 5: TranscriptAPI.com (100 gratis/mes)
+    if TRANSCRIPTAPI_KEY:
+        try:
+            print(f"Intentando TranscriptAPI para {video_id}...")
+            ta_resp = requests.get(
+                f"https://transcriptapi.com/api/v2/youtube/transcript?video_url=https://www.youtube.com/watch?v={video_id}&format=text",
+                headers={"Authorization": f"Bearer {TRANSCRIPTAPI_KEY}", "User-Agent": "AcademiaBiblica/1.0"},
+                timeout=30
+            )
+            if ta_resp.status_code == 200:
+                ta_data = ta_resp.json()
+                transcript_text = ta_data.get("transcript", "")
+                if transcript_text and isinstance(transcript_text, str) and len(transcript_text) > 10:
+                    return _cache_and_return({
+                        "transcript": transcript_text,
+                        "entries": [{"start": 0, "text": transcript_text}],
+                        "source": "transcriptapi"
+                    })
+                last_error = "TranscriptAPI: empty or invalid response"
+            else:
+                last_error = f"TranscriptAPI: HTTP {ta_resp.status_code}"
+        except Exception as e:
+            last_error = str(e)
+            print(f"TranscriptAPI transcript failed: {e}")
+    else:
+        print("TranscriptAPI key no configurada, saltando...")
+
     if os.getenv("ENABLE_WHISPER") == "1":
         print(f"Fallback a Whisper para {video_id}...")
         whisper_text = transcribe_with_whisper(video_id)
@@ -449,6 +569,89 @@ def _get_transcript_text(video_id):
     except Exception as e:
         print(f"_get_transcript_text page parse failed: {e}")
 
+    # Fallback InnerTube iOS client
+    try:
+        innertube_payload = {
+            "context": {
+                "client": {
+                    "clientName": "IOS",
+                    "clientVersion": "19.45.4",
+                    "deviceMake": "Apple",
+                    "deviceModel": "iPhone16,2",
+                    "hl": "es",
+                    "gl": "ES",
+                    "osName": "iPhone",
+                    "osVersion": "18.1.0.22B83",
+                    "userAgent": "com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X;)"
+                }
+            },
+            "videoId": video_id,
+            "contentCheckOk": True,
+            "racyCheckOk": True
+        }
+        it_resp = requests.post(
+            "https://www.youtube.com/youtubei/v1/player?prettyPrint=false",
+            json=innertube_payload,
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X;)",
+            },
+            timeout=15
+        )
+        if it_resp.status_code == 200:
+            it_data = it_resp.json()
+            captions = it_data.get("captions", {}).get("playerCaptionsTracklistRenderer", {}).get("captionTracks", [])
+            if captions:
+                track = next((t for t in captions if t.get("languageCode", "").startswith("es")), captions[0])
+                base_url = track.get("baseUrl", "")
+                if base_url:
+                    cap_resp = requests.get(base_url + "&fmt=json3", timeout=15)
+                    if cap_resp.status_code == 200:
+                        cap_json = cap_resp.json()
+                        texts = []
+                        for ev in cap_json.get("events", []):
+                            text = " ".join(s.get("utf8", "") for s in ev.get("segs", [])).strip()
+                            if text:
+                                texts.append(text)
+                        if texts:
+                            return " ".join(texts)
+    except Exception as e:
+        print(f"_get_transcript_text InnerTube failed: {e}")
+
+    # Fallback Supadata API
+    if SUPADATA_API_KEY:
+        try:
+            print(f"_get_transcript_text intentando Supadata para {video_id}...")
+            sd_resp = requests.get(
+                f"https://api.supadata.ai/v1/youtube/transcript?videoId={video_id}&lang=es&text=true",
+                headers={"x-api-key": SUPADATA_API_KEY, "Content-Type": "application/json"},
+                timeout=30
+            )
+            if sd_resp.status_code == 200:
+                sd_data = sd_resp.json()
+                transcript_text = sd_data.get("content", "")
+                if transcript_text and isinstance(transcript_text, str) and len(transcript_text) > 10:
+                    return transcript_text
+        except Exception as e:
+            print(f"_get_transcript_text Supadata failed: {e}")
+
+    # Fallback TranscriptAPI.com
+    if TRANSCRIPTAPI_KEY:
+        try:
+            print(f"_get_transcript_text intentando TranscriptAPI para {video_id}...")
+            ta_resp = requests.get(
+                f"https://transcriptapi.com/api/v2/youtube/transcript?video_url=https://www.youtube.com/watch?v={video_id}&format=text",
+                headers={"Authorization": f"Bearer {TRANSCRIPTAPI_KEY}", "User-Agent": "AcademiaBiblica/1.0"},
+                timeout=30
+            )
+            if ta_resp.status_code == 200:
+                ta_data = ta_resp.json()
+                transcript_text = ta_data.get("transcript", "")
+                if transcript_text and isinstance(transcript_text, str) and len(transcript_text) > 10:
+                    return transcript_text
+        except Exception as e:
+            print(f"_get_transcript_text TranscriptAPI failed: {e}")
+
     if os.getenv("ENABLE_WHISPER") == "1":
         return transcribe_with_whisper(video_id)
     return None
@@ -488,27 +691,54 @@ def bible_study():
             transcript = fetched
             print(f"Study: transcript fetched via fallback, len={len(transcript)}")
 
-    prompt = f"""Eres un experto en estudios biblicos. Analiza la siguiente predicacion cristiana y proporciona:
+    prompt = f"""Eres un experto en estudios biblicos cristianos evangélicos. Analiza la siguiente predicacion y genera un ESTUDIO BIBLICO COMPLETO Y PROFUNDO.
 
-1. RESUMEN: Un resumen claro y conciso (3-4 parrafos)
+FORMATO DE RESPUESTA (en español, usa markdown):
 
-2. MENSAJE PRINCIPAL: El mensaje central mas importante
+## 📖 TEMA PRINCIPAL
+Identifica y explica el tema central de la predicacion (2-3 parrafos).
 
-3. VERSICULOS MENCIONADOS: Lista cada versiculo con:
-   - Referencia completa (Libro Capitulo:Versiculo)
-   - El texto del versiculo
-   - Por que se menciono en la predicacion
+## 📝 RESUMEN
+Resumen claro y conciso de la predicacion (3-4 parrafos).
 
-4. CONTEXTO Y EXPLICACION: Contexto historico y espiritual
+## 🔍 ANÁLISIS POR SECCIONES
+Divide la predicacion en sus partes principales. Para cada seccion:
+- **Subtema**: Nombre descriptivo
+- **Explicación**: Qué se enseñó
+- **Versículos usados**: Referencia y por qué se usaron en ese contexto
 
-5. PARA PROFUNDIZAR: Temas para estudio personal
+## 📚 VERSICULOS MENCIONADOS
+Para CADA versiculo citado en la predicacion:
+- **Referencia**: Libro Capitulo:Versiculo
+- **Texto completo**: La cita biblica textual
+- **Contexto en la predicación**: Por qué el predicador lo mencionó y qué quería enseñar
+- **Contexto bíblico original**: El contexto del pasaje en su libro original
+- **Conexión con el tema**: Cómo se relaciona con el tema principal
 
-Titulo: {title}
+## 🧠 CONTEXTO HISTÓRICO Y ESPIRITUAL
+Explica el contexto historico, cultural y espiritual de los pasajes biblicos mencionados.
 
-Transcripcion:
-{transcript or 'No disponible. Analiza solo por el titulo: ' + title}
+## 💡 TEMAS PARA REFLEXIONAR
+Lista 5-7 temas profundos para reflexión personal y grupal:
+1. Cada tema con explicación y pregunta de reflexión
 
-Responde en espanol con secciones claras usando markdown."""
+## 🙏 APLICACIÓN PRÁCTICA
+Cómo aplicar estos enseñanzas en la vida diaria (3-4 puntos concretos).
+
+## 📌 VERSICULO CLAVE
+El versiculo mas importante de toda la predicacion y por qué.
+
+## 📖 PARA PROFUNDIZAR
+Sugerencias de estudio adicional (otros pasajes relacionados).
+
+---
+
+Título: {title}
+
+Transcripción:
+{transcript or 'No disponible. Analiza solo por el título: ' + title}
+
+IMPORTANTE: Sé exhaustivo y profundo. El objetivo es que el estudiante pueda verdaderamente entender la predicación en profundidad."""
 
     try:
         result = _call_openrouter(prompt)
@@ -529,24 +759,35 @@ def bible_quiz():
         if fetched:
             transcript = fetched
 
-    prompt = f"""Basandote en la siguiente predicacion cristiana, genera un quiz de 10 preguntas de opcion multiple.
+    prompt = f"""Basandote en la siguiente predicacion cristiana, genera un quiz de 10 preguntas de opcion multiple que evalúen comprensión profunda.
 
 Cada pregunta debe tener:
 - La pregunta clara y concisa
 - 4 opciones (A, B, C, D)
 - La respuesta correcta marcada con un asterisco *
+- Una breve explicación de la respuesta correcta
+
+Tipos de preguntas (varía entre ellas):
+- Preguntas sobre el tema principal
+- Preguntas sobre versículos específicos mencionados
+- Preguntas sobre el contexto histórico/espiritual
+- Preguntas de aplicación práctica
+- Preguntas de conexión entre conceptos
 
 Ejemplo:
-1. Cual es el tema principal de esta predicacion?
-A) La oracion
+1. Cuál es el tema principal de esta predicación?
+A) La oración
 B) La fe*
 C) El amor
 D) La esperanza
+Explicación: El predicador enfatiza la fe como el pilar fundamental...
 
-Titulo: {title}
+---
 
-Transcripcion:
-{transcript or 'No disponible. Genera preguntas basadas en el titulo: ' + title}
+Título: {title}
+
+Transcripción:
+{transcript or 'No disponible. Genera preguntas basadas en el título: ' + title}
 
 Responde SOLO con las preguntas en el formato indicado, sin explicaciones adicionales."""
 

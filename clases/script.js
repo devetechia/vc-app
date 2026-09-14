@@ -190,7 +190,7 @@ async function getYouTubeTranscript(videoId) {
 
     // 1. Servidor Backend primero (rápido, con timestamps exactos vía youtube_transcript_api)
     try {
-        const res = await fetch(`${API_BASE}/api/transcript?videoId=${videoId}`);
+        const res = await fetch(`${API_BASE}/api/transcript?videoId=${videoId}`, { signal: AbortSignal.timeout(60000) });
         if (res.ok) {
             const data = await res.json();
             if (Array.isArray(data.entries) && data.entries.length) {
