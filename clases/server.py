@@ -658,24 +658,55 @@ def _get_transcript_text(video_id):
 
 
 def _call_openrouter(prompt):
-    resp = requests.post(
-        GROK_API_URL,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {OPENROUTER_KEY}",
-        },
-        json={
-            "model": OPENROUTER_MODEL,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.7,
-            "max_tokens": 4096,
-        },
-        timeout=60,
-    )
-    data = resp.json()
-    if "choices" in data and data["choices"]:
-        return data["choices"][0]["message"]["content"]
-    raise Exception(data.get("error", {}).get("message") or str(data))
+    models_to_try = [
+        OPENROUTER_MODEL,
+        "openrouter/free",
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+    ]
+    
+    last_error = None
+    for model in models_to_try:
+        try:
+            print(f"Trying model: {model}")
+            resp = requests.post(
+                GROK_API_URL,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {OPENROUTER_KEY}",
+                },
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.7,
+                    "max_tokens": 4096,
+                },
+                timeout=90,
+            )
+            data = resp.json()
+            if "choices" in data and data["choices"]:
+                print(f"Success with model: {model}")
+                return data["choices"][0]["message"]["content"]
+            
+            error_code = data.get("error", {}).get("code", 0)
+            last_error = data.get("error", {}).get("message") or str(data)
+            print(f"Error on {model} (code {error_code}): {last_error}")
+            
+            if error_code == 429:
+                print(f"Rate limited on {model}, trying next...")
+                time.sleep(2)
+                continue
+            else:
+                break
+        except requests.exceptions.Timeout:
+            print(f"Timeout on {model}")
+            last_error = f"Timeout on {model}"
+            continue
+        except Exception as e:
+            last_error = str(e)
+            print(f"Exception on {model}: {last_error}")
+            continue
+    
+    raise Exception(last_error or "All models failed")
 
 
 # ===== STUDY =====
@@ -693,43 +724,42 @@ def bible_study():
 
     prompt = f"""Eres un experto en estudios biblicos cristianos evangélicos. Analiza la siguiente predicacion y genera un ESTUDIO BIBLICO COMPLETO Y PROFUNDO.
 
-FORMATO DE RESPUESTA (en español, usa markdown):
+FORMATO (en español, markdown):
 
 ## 📖 TEMA PRINCIPAL
-Identifica y explica el tema central de la predicacion (2-3 parrafos).
+Tema central de la predicacion (2-3 párrafos).
 
 ## 📝 RESUMEN
-Resumen claro y conciso de la predicacion (3-4 parrafos).
+Resumen claro y conciso (3-4 párrafos).
 
 ## 🔍 ANÁLISIS POR SECCIONES
-Divide la predicacion en sus partes principales. Para cada seccion:
-- **Subtema**: Nombre descriptivo
-- **Explicación**: Qué se enseñó
-- **Versículos usados**: Referencia y por qué se usaron en ese contexto
+Divide la predicacion en partes. Para cada una:
+- **Subtema**
+- **Explicación**
+- **Versículos usados**: referencia y por qué
 
 ## 📚 VERSICULOS MENCIONADOS
-Para CADA versiculo citado en la predicacion:
-- **Referencia**: Libro Capitulo:Versiculo
-- **Texto completo**: La cita biblica textual
-- **Contexto en la predicación**: Por qué el predicador lo mencionó y qué quería enseñar
-- **Contexto bíblico original**: El contexto del pasaje en su libro original
-- **Conexión con el tema**: Cómo se relaciona con el tema principal
+Para CADA versiculo citado:
+- **Referencia**: Libro Cap:Vers
+- **Texto completo**
+- **Contexto en la predicación**: por qué se mencionó
+- **Contexto bíblico original**: contexto en su libro
+- **Conexión con el tema**
 
 ## 🧠 CONTEXTO HISTÓRICO Y ESPIRITUAL
-Explica el contexto historico, cultural y espiritual de los pasajes biblicos mencionados.
+Contexto histórico, cultural y espiritual de los pasajes.
 
 ## 💡 TEMAS PARA REFLEXIONAR
-Lista 5-7 temas profundos para reflexión personal y grupal:
-1. Cada tema con explicación y pregunta de reflexión
+5-7 temas profundos con explicación y pregunta.
 
 ## 🙏 APLICACIÓN PRÁCTICA
-Cómo aplicar estos enseñanzas en la vida diaria (3-4 puntos concretos).
+3-4 puntos concretos para la vida diaria.
 
 ## 📌 VERSICULO CLAVE
-El versiculo mas importante de toda la predicacion y por qué.
+El versículo más importante y por qué.
 
 ## 📖 PARA PROFUNDIZAR
-Sugerencias de estudio adicional (otros pasajes relacionados).
+Otros pasajes relacionados.
 
 ---
 
@@ -738,7 +768,7 @@ Título: {title}
 Transcripción:
 {transcript or 'No disponible. Analiza solo por el título: ' + title}
 
-IMPORTANTE: Sé exhaustivo y profundo. El objetivo es que el estudiante pueda verdaderamente entender la predicación en profundidad."""
+IMPORTANTE: Sé exhaustivo y profundo. El objetivo es entender la predicación en profundidad."""
 
     try:
         result = _call_openrouter(prompt)
