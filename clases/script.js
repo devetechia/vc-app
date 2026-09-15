@@ -389,7 +389,8 @@ async function callServerAI(endpoint, payload) {
     const res = await fetch(`${API_BASE}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(120000)
     });
     const data = await res.json();
     if (data.result) return data.result;
