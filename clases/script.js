@@ -441,34 +441,40 @@ function parseAIResponse(text) {
     let currentSection = '';
     let currentContent = [];
 
+    function saveSection() {
+        if (currentSection && currentContent.length && !sections[currentSection]) {
+            sections[currentSection] = currentContent.join('\n').trim();
+        }
+    }
+
     for (const line of lines) {
         const lower = line.toLowerCase();
 
         if (lower.includes('resumen') && (lower.includes('##') || lower.includes('**'))) {
-            if (currentSection && currentContent.length) sections[currentSection] = currentContent.join('\n').trim();
+            saveSection();
             currentSection = 'summary';
             currentContent = [];
-        } else if (lower.includes('mensaje principal') || lower.includes('mensaje central')) {
-            if (currentSection && currentContent.length) sections[currentSection] = currentContent.join('\n').trim();
+        } else if (lower.includes('tema principal') || lower.includes('mensaje principal') || lower.includes('mensaje central')) {
+            saveSection();
             currentSection = 'message';
             currentContent = [];
-        } else if (lower.includes('versículo') || lower.includes('versiculo')) {
-            if (currentSection && currentContent.length) sections[currentSection] = currentContent.join('\n').trim();
+        } else if (lower.includes('versículos mencionados') || lower.includes('versiculo mencionado')) {
+            saveSection();
             currentSection = 'verses';
             currentContent = [];
-        } else if (lower.includes('contexto') || lower.includes('explicación') || lower.includes('explicacion')) {
-            if (currentSection && currentContent.length) sections[currentSection] = currentContent.join('\n').trim();
+        } else if (lower.includes('contexto')) {
+            saveSection();
             currentSection = 'context';
             currentContent = [];
-        } else if (lower.includes('profundizar') || lower.includes('estudio')) {
-            if (currentSection && currentContent.length) sections[currentSection] = currentContent.join('\n').trim();
+        } else if (lower.includes('profundizar') || lower.includes('para profundizar')) {
+            saveSection();
             currentSection = 'study';
             currentContent = [];
         } else if (line.trim()) {
             currentContent.push(line);
         }
     }
-    if (currentSection && currentContent.length) sections[currentSection] = currentContent.join('\n').trim();
+    saveSection();
     if (!sections.summary && !sections.message) sections.summary = text;
     return sections;
 }
