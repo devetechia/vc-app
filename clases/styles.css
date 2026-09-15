@@ -105,7 +105,7 @@ button { cursor: pointer; font-family: inherit; }
 
 /* STUDIO PAGE */
 .studio-layout { padding-top: 80px; min-height: 100vh; }
-.studio-video { width: 100%; max-width: 900px; margin: 24px auto 0; aspect-ratio: 16/9; border-radius: var(--radius-lg); overflow: hidden; background: #000; }
+.studio-video { width: 100%; max-width: min(80%, 1400px); margin: 24px auto 0; aspect-ratio: 16/9; border-radius: var(--radius-lg); overflow: hidden; background: #000; }
 .studio-video iframe { width: 100%; height: 100%; border: none; }
 .studio-title { text-align: center; padding: 24px; }
 .studio-title h1 { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 700; margin-bottom: 8px; }
@@ -114,7 +114,7 @@ button { cursor: pointer; font-family: inherit; }
 .studio-tab { padding: 10px 20px; font-size: 13px; font-weight: 600; color: var(--text-muted); background: none; border: 1px solid var(--border); border-radius: 10px; transition: all 0.3s ease; }
 .studio-tab:hover { color: var(--text); border-color: var(--purple); }
 .studio-tab.active { background: var(--purple); color: white; border-color: var(--purple); }
-.studio-panel { display: none; max-width: 900px; margin: 0 auto; padding: 0 24px 48px; }
+.studio-panel { display: none; max-width: min(80%, 1400px); margin: 0 auto; padding: 0 24px 48px; }
 .studio-panel.active { display: block; }
 
 /* TRANSCRIPT */
@@ -130,7 +130,7 @@ button { cursor: pointer; font-family: inherit; }
 /* BIBLE STUDY */
 .bible-section { margin-bottom: 20px; padding: 20px; background: rgba(255, 255, 255, 0.03); border-radius: var(--radius); border-left: 3px solid var(--purple); }
 .bible-section h3 { font-size: 16px; margin-bottom: 12px; color: var(--gold); }
-.bible-section-content { color: var(--text); font-size: 14px; line-height: 1.7; }
+.bible-section-content { color: var(--text); font-size: 15px; line-height: 1.8; max-width: 900px; }
 .bible-section-content p { margin-bottom: 12px; }
 .bible-section-content strong { color: var(--purple-light); }
 .bible-verse-card { background: rgba(139, 92, 246, 0.1); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
@@ -741,5 +741,7 @@ mark {
     .hero-desc { font-size: 15px; }
     .section { padding: 48px 0; }
     .studio-title h1 { font-size: 18px; }
+    .studio-panel { max-width: 100%; padding: 0 16px 32px; }
+    .studio-video { max-width: 100%; }
 }
 
