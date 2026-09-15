@@ -48,11 +48,23 @@
             <p id="videoDate"></p>
         </div>
 
-        <div style="text-align:center; padding:0 24px; margin-bottom:8px;">
-            <div style="display:flex; justify-content:center; align-items:center; gap:8px; flex-wrap:wrap;">
-                <a href="tests.html" id="btnGoTest" class="btn btn-gold btn-sm">Hacer test de esta predicacion</a>
-                <button class="studio-tab active" data-tab="study">Estudio Biblico</button>
-                <button class="studio-tab" data-tab="notes">Apuntes</button>
+        <div style="padding:0 24px; margin-bottom:32px;">
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; max-width:900px; margin:0 auto;">
+                <button class="action-card" id="btnGoStudy" style="background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.3); border-radius:12px; padding:24px 16px; cursor:pointer; text-align:center; transition:all 0.3s;">
+                    <div style="font-size:28px; margin-bottom:8px;">📖</div>
+                    <div style="color:var(--purple-light); font-weight:700; font-size:15px; margin-bottom:6px;">Estudio biblico</div>
+                    <div style="color:var(--text-muted); font-size:12px; line-height:1.4;">Analisis profundo con versiculos, contexto y aplicacion practica</div>
+                </button>
+                <a href="tests.html" id="btnGoTest" style="background:rgba(255,215,0,0.08); border:1px solid rgba(255,215,0,0.25); border-radius:12px; padding:24px 16px; cursor:pointer; text-align:center; text-decoration:none; transition:all 0.3s; display:block;">
+                    <div style="font-size:28px; margin-bottom:8px;">📝</div>
+                    <div style="color:var(--gold); font-weight:700; font-size:15px; margin-bottom:6px;">Test</div>
+                    <div style="color:var(--text-muted); font-size:12px; line-height:1.4;">Pon a prueba lo que aprendiste con preguntas de opcion multiple</div>
+                </a>
+                <button class="action-card" id="btnGoNotes" style="background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.25); border-radius:12px; padding:24px 16px; cursor:pointer; text-align:center; transition:all 0.3s;">
+                    <div style="font-size:28px; margin-bottom:8px;">✍️</div>
+                    <div style="color:#22c55e; font-weight:700; font-size:15px; margin-bottom:6px;">Apuntes</div>
+                    <div style="color:var(--text-muted); font-size:12px; line-height:1.4;">Guarda tus reflexiones personales sobre esta predicacion</div>
+                </button>
             </div>
         </div>
 
@@ -120,9 +132,6 @@
 
         <!-- STUDY PANEL -->
         <div class="studio-panel active" id="panel-study">
-            <div style="text-align:center; margin-bottom:24px;">
-                <button class="btn btn-primary" id="btnStartStudy">Generar Estudio Biblico</button>
-            </div>
             <div id="studyLoading" style="display:none;">
                 <div class="loading"><div class="loading-spinner"></div><p>Analizando con IA...</p><p class="loading-sub">Esto puede tardar 30-60 segundos</p></div>
             </div>
@@ -360,25 +369,23 @@
             catch (e) { console.error(e); showToast('Error al generar PDF'); }
         });
 
-        // Tabs
-        document.querySelectorAll('.studio-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.studio-tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.studio-panel').forEach(p => p.classList.remove('active'));
-                tab.classList.add('active');
-                document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
-                // Auto-show noTranscript panel when switching to study tab
-                if (tab.dataset.tab === 'study') {
-                    const noT = document.getElementById('studyNoTranscript');
-                    const cached = getCachedStudy(videoId);
-                    const hasText = rawEntries && rawEntries.length > 0;
-                    if (noT && !cached && !hasText) {
-                        noT.style.display = 'block';
-                    } else if (noT) {
-                        noT.style.display = 'none';
-                    }
-                }
-            });
+        // Cards navigation
+        document.getElementById('btnGoStudy')?.addEventListener('click', () => {
+            document.querySelectorAll('.studio-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('panel-study').classList.add('active');
+            const noT = document.getElementById('studyNoTranscript');
+            const cached = getCachedStudy(videoId);
+            const hasText = rawEntries && rawEntries.length > 0;
+            if (noT && !cached && !hasText) {
+                noT.style.display = 'block';
+            } else if (noT) {
+                noT.style.display = 'none';
+            }
+        });
+
+        document.getElementById('btnGoNotes')?.addEventListener('click', () => {
+            document.querySelectorAll('.studio-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('panel-notes').classList.add('active');
         });
 
         // Bible Study
@@ -472,9 +479,8 @@
             }, 25000);
         }
 
-        document.getElementById('btnStartStudy').addEventListener('click', () => startStudy(false));
-        document.getElementById('btnRetryStudy').addEventListener('click', () => startStudy(false));
-        document.getElementById('btnRegenerateStudy').addEventListener('click', () => {
+        document.getElementById('btnRetryStudy')?.addEventListener('click', () => startStudy(false));
+        document.getElementById('btnRegenerateStudy')?.addEventListener('click', () => {
             try { localStorage.removeItem('academia_study_' + videoId); } catch {}
             rawEntries = null;
             startStudy(true);
@@ -524,9 +530,10 @@
             }
         });
 
-        // Check if cached study exists
+        // Check if cached study exists - show study panel if so
         if (getCachedStudy(videoId)) {
-            document.getElementById('btnStartStudy').textContent = 'Ver estudio guardado';
+            document.querySelectorAll('.studio-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('panel-study').classList.add('active');
         }
     </script>
 </body>
