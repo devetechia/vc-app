@@ -89,11 +89,11 @@
         </div>
     </footer>
 
+    <script src="nav.js"></script>
     <script src="supabase.js"></script>
     <script src="auth.js"></script>
     <script src="script.js?v=2.4.0"></script>
     <script>
-        initNavbar();
         function renderNotes() {
             const notes = getNotes();
             const search = document.getElementById('noteSearch')?.value.toLowerCase().trim() || '';
