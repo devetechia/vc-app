@@ -39,7 +39,7 @@
                 <li><a href="predicaciones.html" class="nav-link active">Predicaciones</a></li>
                 <li><a href="tests.html" class="nav-link">Tests</a></li>
                 <li><a href="notas.html" class="nav-link">Mis Apuntes</a></li>
-                <li id="authNavItem"><a href="#" class="nav-link" id="authBtn" style="color:var(--gold); font-weight:600;">Iniciar sesion</a></li>
+                <li id="authNavItem"><a href="#" class="nav-link" id="authBtn" style="color:var(--gold); font-weight:600;">Login</a></li>
             </ul>
         </div>
     </nav>
@@ -123,10 +123,8 @@
                     <div class="filter-field">
                         <label for="filterSort">Ordenar por</label>
                         <select id="filterSort" class="filter-select" aria-label="Ordenar predicaciones">
-                            <option value="date-desc">Más recientes primero</option>
-                            <option value="date-asc">Más antiguos primero</option>
-                            <option value="title-asc">Título (A - Z)</option>
-                            <option value="title-desc">Título (Z - A)</option>
+                            <option value="date-desc">Mas recientes primero</option>
+                            <option value="date-asc">Mas antiguos primero</option>
                         </select>
                     </div>
                 </div>
@@ -289,12 +287,6 @@
                 switch (filterState.sort) {
                     case 'date-asc':
                         filtered.sort((a, b) => new Date(a.rawDate || a.date) - new Date(b.rawDate || b.date));
-                        break;
-                    case 'title-asc':
-                        filtered.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'es', { sensitivity: 'base' }));
-                        break;
-                    case 'title-desc':
-                        filtered.sort((a, b) => (b.title || '').localeCompare(a.title || '', 'es', { sensitivity: 'base' }));
                         break;
                     case 'date-desc':
                     default:

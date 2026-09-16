@@ -1022,13 +1022,13 @@ function renderProgressDashboard(containerId, allVideos = []) {
                         <a href="estudio.html?id=${v.id}" class="recent-card" aria-label="Continuar ${escapeHtml(v.title)}">
                             <div class="recent-thumb-wrap">
                                 <img src="${v.thumbnail}" alt="${escapeHtml(v.title)}" loading="lazy">
-                                <span class="sermon-badge watched">Visto</span>
                             </div>
                             <div class="recent-info">
                                 <h4 class="recent-title">${escapeHtml(v.title)}</h4>
                                 <div class="recent-meta">
                                     ${v.preacher ? `<span class="recent-preacher">${escapeHtml(v.preacher)}</span>` : ''}
                                     <span class="recent-date">${escapeHtml(v.date || '')}</span>
+                                    <span class="recent-watched-badge">Visto</span>
                                 </div>
                             </div>
                         </a>
