@@ -33,28 +33,31 @@
         </div>
     </nav>
     <script>
-    document.getElementById('navToggle').addEventListener('click', function() {
-        var links = document.getElementById('navLinks');
-        var open = links.classList.toggle('open');
-        this.classList.toggle('active', open);
-        this.setAttribute('aria-expanded', String(open));
-    });
-    document.getElementById('navLinks').querySelectorAll('a').forEach(function(a) {
-        a.addEventListener('click', function() {
-            document.getElementById('navLinks').classList.remove('open');
-            document.getElementById('navToggle').classList.remove('active');
-            document.getElementById('navToggle').setAttribute('aria-expanded', 'false');
-        });
-    });
-    document.addEventListener('click', function(e) {
-        var links = document.getElementById('navLinks');
+    (function(){
         var toggle = document.getElementById('navToggle');
-        if (!links.contains(e.target) && !toggle.contains(e.target)) {
+        var links = document.getElementById('navLinks');
+        if (!toggle || !links) return;
+        function closeNav() {
             links.classList.remove('open');
             toggle.classList.remove('active');
             toggle.setAttribute('aria-expanded', 'false');
         }
-    });
+        toggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var open = links.classList.toggle('open');
+            toggle.classList.toggle('active', open);
+            toggle.setAttribute('aria-expanded', String(open));
+        });
+        links.querySelectorAll('a').forEach(function(a) {
+            a.addEventListener('click', closeNav);
+        });
+        document.addEventListener('click', function(e) {
+            if (!links.contains(e.target) && !toggle.contains(e.target)) closeNav();
+        });
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeNav();
+        });
+    })();
     </script>
 
     <section class="hero">

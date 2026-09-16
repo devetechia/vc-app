@@ -715,50 +715,14 @@ async function exportStudyPDF(title, studyMarkdown) {
     doc.save(`estudio-${title.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50)}.pdf`);
 }
 
-// ===== NAVBAR (a11y) =====
-function initNavbar() {
-    const toggle = document.getElementById('navToggle');
-    const links = document.getElementById('navLinks');
-    if (!toggle || !links) return;
-    toggle.setAttribute('aria-expanded', 'false');
-    toggle.setAttribute('aria-controls', 'navLinks');
-    toggle.addEventListener('click', () => {
-        const open = links.classList.toggle('open');
-        toggle.classList.toggle('active', open);
-        toggle.setAttribute('aria-expanded', String(open));
-    });
-    links.querySelectorAll('a').forEach(a => {
-        a.addEventListener('click', () => {
-            links.classList.remove('open');
-            toggle.classList.remove('active');
-            toggle.setAttribute('aria-expanded', 'false');
-        });
-    });
-    document.addEventListener('click', (e) => {
-        if (!links.contains(e.target) && !toggle.contains(e.target)) {
-            links.classList.remove('open');
-            toggle.classList.remove('active');
-            toggle.setAttribute('aria-expanded', 'false');
-        }
-    });
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            links.classList.remove('open');
-            toggle.classList.remove('active');
-            toggle.setAttribute('aria-expanded', 'false');
-        }
-    });
-}
-
 // ===== UTILS =====
 function getUrlParam(name) {
     return new URLSearchParams(window.location.search).get(name);
 }
 
-// Inicializar navbar y Service Worker al cargar página
+// Inicializar Service Worker al cargar página (nav handled by inline scripts in HTML)
 if (typeof document !== 'undefined') {
     document.addEventListener('DOMContentLoaded', () => {
-        initNavbar();
         initServiceWorker();
     });
 }
