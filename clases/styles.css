@@ -117,6 +117,10 @@ button { cursor: pointer; font-family: inherit; }
 .studio-panel { display: none; max-width: min(80%, 1400px); margin: 0 auto; padding: 0 24px 48px; }
 .studio-panel.active { display: block; }
 
+/* ACTION CARDS */
+.action-cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 900px; margin: 0 auto; }
+.action-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(139, 92, 246, 0.15); }
+
 /* TRANSCRIPT */
 .transcript-content { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; font-size: 14px; line-height: 1.8; white-space: pre-wrap; max-height: 500px; overflow-y: auto; }
 .transcript-content::-webkit-scrollbar { width: 6px; }
@@ -743,5 +747,6 @@ mark {
     .studio-title h1 { font-size: 18px; }
     .studio-panel { max-width: 100%; padding: 0 16px 32px; }
     .studio-video { max-width: 100%; }
+    .action-cards-grid { grid-template-columns: 1fr; }
 }
 
