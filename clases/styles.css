@@ -99,6 +99,7 @@ button { cursor: pointer; font-family: inherit; }
 .sermon-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60px; height: 60px; background: rgba(139, 92, 246, 0.85); border-radius: 50%; display: flex; align-items: center; justify-content: center; opacity: 0; transition: all 0.3s ease; color: white; }
 .sermon-card:hover .sermon-play { opacity: 1; }
 .sermon-badge { position: absolute; top: 12px; left: 12px; background: var(--purple); color: white; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.sermon-badge.no-transcript { background: rgba(239, 68, 68, 0.9); left: auto; right: 12px; top: 12px; }
 .sermon-info { padding: 16px 20px 20px; }
 .sermon-info h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; line-height: 1.4; }
 .sermon-info p { font-size: 12px; color: var(--text-muted); }

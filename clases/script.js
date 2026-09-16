@@ -812,11 +812,14 @@ function setVideoWatched(videoId, watched) {
 }
 
 // ===== SERMON BADGE HELPER =====
+const NO_TRANSCRIPT_IDS = ['lPAHis7WqXw', 'MgHTULjQdJI', 'az_L2h47m8Q'];
+
 function getSermonBadges(videoId, index, append) {
     const isWatched = isVideoWatched(videoId);
     const recentBadge = (index === 0 && !append) ? '<span class="sermon-badge">Reciente</span>' : '';
     const watchedBadge = isWatched ? '<span class="sermon-badge watched">Visto</span>' : '';
-    return recentBadge + watchedBadge;
+    const noTranscriptBadge = NO_TRANSCRIPT_IDS.includes(videoId) ? '<span class="sermon-badge no-transcript">Sin transcripcion</span>' : '';
+    return recentBadge + watchedBadge + noTranscriptBadge;
 }
 
 // ===== PREACHER EXTRACTION HELPER =====

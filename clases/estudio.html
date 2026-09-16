@@ -95,6 +95,13 @@
             </div>
         </div>
 
+        <div id="noTranscriptNotice" style="display:none; padding:0 24px; margin-bottom:24px;">
+            <div style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); border-radius:12px; padding:16px 20px; max-width:600px; margin:0 auto; text-align:center;">
+                <p style="color:#f87171; font-size:0.9rem; font-weight:600; margin-bottom:4px;">Este video no tiene transcripcion disponible</p>
+                <p style="color:var(--text-muted); font-size:0.8rem;">La transcripcion de este video no esta disponible en las fuentes consultadas. Puedes ver el video en YouTube directamente.</p>
+            </div>
+        </div>
+
         <!-- TRANSCRIPT PANEL (oculto - solo funciona internamente para IA) -->
         <div class="studio-panel" id="panel-transcript" style="display:none;">
             <div class="transcript-toolbar">
@@ -211,6 +218,12 @@
     <script>
         const videoId = getUrlParam('id');
         if (!videoId) { window.location.href = 'predicaciones.html'; }
+
+        // Show notice for videos without transcripts
+        if (NO_TRANSCRIPT_IDS.includes(videoId)) {
+            const notice = document.getElementById('noTranscriptNotice');
+            if (notice) notice.style.display = 'block';
+        }
 
         let rawEntries = null;
         let currentSkip = 20;
