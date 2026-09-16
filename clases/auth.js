@@ -130,7 +130,7 @@
                 document.getElementById('dropdownUserEmail').textContent = user.email || '';
             };
         } else {
-            btn.innerHTML = 'Iniciar sesion';
+            btn.innerHTML = 'Login';
             btn.style.color = '#ffd700';
             btn.onclick = openAuthModal;
             if (dropdown) dropdown.style.display = 'none';
