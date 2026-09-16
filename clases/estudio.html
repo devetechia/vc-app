@@ -34,6 +34,32 @@
             </ul>
         </div>
     </nav>
+    <script>
+    document.getElementById('navToggle').addEventListener('click', function() {
+        var links = document.getElementById('navLinks');
+        var open = links.classList.toggle('open');
+        this.classList.toggle('active', open);
+        this.setAttribute('aria-expanded', String(open));
+    });
+    document.getElementById('navLinks').querySelectorAll('a').forEach(function(a) {
+        a.addEventListener('click', function() {
+            var links = document.getElementById('navLinks');
+            var toggle = document.getElementById('navToggle');
+            links.classList.remove('open');
+            toggle.classList.remove('active');
+            toggle.setAttribute('aria-expanded', 'false');
+        });
+    });
+    document.addEventListener('click', function(e) {
+        var links = document.getElementById('navLinks');
+        var toggle = document.getElementById('navToggle');
+        if (!links.contains(e.target) && !toggle.contains(e.target)) {
+            links.classList.remove('open');
+            toggle.classList.remove('active');
+            toggle.setAttribute('aria-expanded', 'false');
+        }
+    });
+    </script>
 
     <div class="studio-layout">
         <div class="studio-video" id="videoContainer"></div>
@@ -178,7 +204,6 @@
         </div>
     </footer>
 
-    <script src="nav.js"></script>
     <script src="supabase.js"></script>
     <script src="auth.js"></script>
     <script src="script.js?v=2.3.0"></script>

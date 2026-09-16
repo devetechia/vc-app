@@ -659,7 +659,7 @@ def _get_transcript_text(video_id):
 
 def _call_openrouter(prompt):
     models_to_try = [
-        OPENROUTER_MODEL,
+        "google/gemma-4-26b-a4b-it:free",
         "openrouter/free",
         "nvidia/nemotron-3-ultra-550b-a55b:free",
     ]
@@ -678,9 +678,9 @@ def _call_openrouter(prompt):
                     "model": model,
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.7,
-                    "max_tokens": 4096,
+                    "max_tokens": 16384,
                 },
-                timeout=90,
+                timeout=120,
             )
             data = resp.json()
             if "choices" in data and data["choices"]:
