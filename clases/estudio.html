@@ -401,12 +401,8 @@
             document.getElementById('panel-study').classList.add('active');
             const noT = document.getElementById('studyNoTranscript');
             const cached = getCachedStudy(videoId);
-            const hasText = rawEntries && rawEntries.length > 0;
-            if (noT && !cached && !hasText) {
-                noT.style.display = 'block';
-            } else if (noT) {
-                noT.style.display = 'none';
-            }
+            if (noT) noT.style.display = 'none';
+            startStudy(true);
         });
 
         document.getElementById('btnGoNotes')?.addEventListener('click', () => {
