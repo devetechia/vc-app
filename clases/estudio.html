@@ -428,6 +428,14 @@
             const error = document.getElementById('studyError');
             const noTranscript = document.getElementById('studyNoTranscript');
 
+            if (typeof NO_TRANSCRIPT_IDS !== 'undefined' && NO_TRANSCRIPT_IDS.includes(videoId)) {
+                loading.style.display = 'none';
+                results.style.display = 'none';
+                error.style.display = 'none';
+                if (noTranscript) noTranscript.style.display = 'block';
+                return;
+            }
+
             if (!force) {
                 const cached = await getCachedStudy(videoId);
                 if (cached) {
