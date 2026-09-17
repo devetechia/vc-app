@@ -11,6 +11,7 @@
     <meta name="theme-color" content="#0a0a0f">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="apple-touch-icon" href="logos/logo vc.png">
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
     <script src="supabase-client.min.js"></script>
@@ -353,6 +354,7 @@
                         const renderedTitle = typeof highlightMatches === 'function' 
                             ? highlightMatches(v.title, filterState.search) 
                             : highlight(v.title, filterState.search);
+                        const separatedTitle = renderedTitle.replace(/(\s*[|I]\s+)/g, '<span class="title-separator">$1</span>');
                         const renderedPreacher = v.preacher 
                             ? (typeof highlightMatches === 'function' ? highlightMatches(v.preacher, filterState.search) : escapeHtml(v.preacher))
                             : '';
@@ -367,7 +369,7 @@
                                     ${getSermonBadges(v.id, i, false)}
                                 </div>
                                 <div class="sermon-info">
-                                    <h3>${renderedTitle}</h3>
+                                    <h3>${separatedTitle}</h3>
                                     <p>${escapeHtml(v.date)}${renderedPreacher ? ` • <span class="sermon-preacher-badge">${renderedPreacher}</span>` : ''}</p>
                                     ${snippetHTML}
                                 </div>

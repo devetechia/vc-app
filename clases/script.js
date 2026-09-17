@@ -811,6 +811,12 @@ function setVideoWatched(videoId, watched) {
     localStorage.setItem(key, !!watched);
 }
 
+// ===== TITLE SEPARATOR HELPER =====
+function renderTitleWithSeparators(title) {
+    if (!title) return '';
+    return escapeHtml(title).replace(/(\s+\|+\s+)/g, '<span class="title-separator">$1</span>');
+}
+
 // ===== SERMON BADGE HELPER =====
 const NO_TRANSCRIPT_IDS = ['lPAHis7WqXw', 'MgHTULjQdJI', 'az_L2h47m8Q'];
 

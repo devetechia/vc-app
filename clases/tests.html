@@ -11,6 +11,7 @@
     <meta name="theme-color" content="#0a0a0f">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="apple-touch-icon" href="logos/logo vc.png">
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
     <script src="supabase-client.min.js"></script>
@@ -150,7 +151,7 @@
                         </div>
                     </div>
                     <div class="sermon-info">
-                        <h3>${escapeHtml(v.title)}</h3>
+                        <h3>${renderTitleWithSeparators(v.title)}</h3>
                         <p>${escapeHtml(v.date)}</p>
                     </div>
                 </div>
