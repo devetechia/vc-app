@@ -259,7 +259,7 @@
                 }
                 return;
             }
-            document.getElementById('videoTitle').textContent = video.title;
+            document.getElementById('videoTitle').innerHTML = renderTitleWithSeparators(video.title);
             recordVideoWatch(video);
             document.getElementById('videoDate').textContent = video.date;
             document.title = video.title + ' - Academia Biblica';

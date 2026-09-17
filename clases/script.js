@@ -814,7 +814,7 @@ function setVideoWatched(videoId, watched) {
 // ===== TITLE SEPARATOR HELPER =====
 function renderTitleWithSeparators(title) {
     if (!title) return '';
-    return escapeHtml(title).replace(/(\s+\|+\s+)/g, '<span class="title-separator">$1</span>');
+    return escapeHtml(title).replace(/(\s+\|+\s+|\s+I\s+)/g, '<span class="title-separator">$1</span>');
 }
 
 // ===== SERMON BADGE HELPER =====
