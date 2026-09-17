@@ -6,6 +6,7 @@ from pathlib import Path
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
+from collections import defaultdict
 
 try:
     from dotenv import load_dotenv
@@ -33,8 +34,31 @@ CORS(app, origins=[
     "https://*.kavanasystems.com",
     "https://*.fly.dev",
     "https://*.vercel.app",
-    "null",
 ])
+
+# ===== RATE LIMITING (simple in-memory, per-IP) =====
+_rate_limit_store = defaultdict(list)
+RATE_LIMIT窗口 = 300  # 5 minutes
+RATE_LIMIT_MAX = 10   # max requests per window
+
+def _check_rate_limit(ip, endpoint):
+    now = time.time()
+    _rate_limit_store[f"{ip}:{endpoint}"] = [t for t in _rate_limit_store[f"{ip}:{endpoint}"] if now - t < RATE_LIMIT窗口]
+    if len(_rate_limit_store[f"{ip}:{endpoint}"]) >= RATE_LIMIT_MAX:
+        return False
+    _rate_limit_store[f"{ip}:{endpoint}"].append(now)
+    return True
+
+MAX_TRANSCRIPT_LEN = 100000  # ~100K chars max
+
+def _validate_ai_request(data):
+    transcript = data.get("transcript", "")
+    title = data.get("title", "")
+    if not transcript and not title:
+        return "Se requiere transcript o titulo"
+    if len(transcript) > MAX_TRANSCRIPT_LEN:
+        return f"Transcript demasiado largo (max {MAX_TRANSCRIPT_LEN} caracteres)"
+    return None
 
 # Servir archivos estáticos (HTML, CSS, JS) desde el directorio del proyecto
 from flask import send_from_directory
@@ -45,7 +69,7 @@ def index():
 
 @app.route('/favicon.ico')
 def favicon():
-    return send_from_directory(str(Path(__file__).parent / 'logos'), 'logo.svg', mimetype='image/svg+xml')
+    return send_from_directory(str(Path(__file__).parent / 'logos'), 'logo vc.png', mimetype='image/png')
 
 @app.route('/<path:filename>')
 def serve_static(filename):
@@ -60,8 +84,8 @@ GROK_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 PROXY_URL = os.getenv("PROXY_URL", "")  # ej: http://user:pass@proxy.webshare.io:80
 SUPADATA_API_KEY = os.getenv("SUPADATA_API_KEY", "")
 TRANSCRIPTAPI_KEY = os.getenv("TRANSCRIPTAPI_KEY", "")
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://ndhvqhzfsdedhstllpic.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5kaHZxaHpmc2RlZGhzdGxscGljIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTEzNTc4OSwiZXhwIjoyMTA0NzExNzg5fQ.uzDWf3WeoJA5ToW7IaXzDwjtI1c044FuLnek9UUZvOM")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
 # Validación de API Keys (ADR-001)
 if not YT_API_KEY:
@@ -732,6 +756,7 @@ def _get_transcript_text(video_id):
 
 def _call_openrouter(prompt):
     models_to_try = [
+        OPENROUTER_MODEL,
         "google/gemma-4-26b-a4b-it:free",
         "openrouter/free",
         "nvidia/nemotron-3-ultra-550b-a55b:free",
@@ -785,7 +810,13 @@ def _call_openrouter(prompt):
 # ===== STUDY =====
 @app.route("/api/study", methods=["POST"])
 def bible_study():
+    ip = request.remote_addr or "unknown"
+    if not _check_rate_limit(ip, "study"):
+        return jsonify({"error": "Demasiadas solicitudes. Intenta de nuevo en 5 minutos."}), 429
     data = request.json or {}
+    validation_err = _validate_ai_request(data)
+    if validation_err:
+        return jsonify({"error": validation_err}), 400
     transcript = data.get("transcript", "")
     title = data.get("title", "")
     video_id = data.get("videoId", "")
@@ -853,7 +884,13 @@ IMPORTANTE: Sé exhaustivo y profundo. El objetivo es entender la predicación e
 # ===== QUIZ =====
 @app.route("/api/quiz", methods=["POST"])
 def bible_quiz():
+    ip = request.remote_addr or "unknown"
+    if not _check_rate_limit(ip, "quiz"):
+        return jsonify({"error": "Demasiadas solicitudes. Intenta de nuevo en 5 minutos."}), 429
     data = request.json or {}
+    validation_err = _validate_ai_request(data)
+    if validation_err:
+        return jsonify({"error": validation_err}), 400
     transcript = data.get("transcript", "")
     title = data.get("title", "")
     video_id = data.get("videoId", "")

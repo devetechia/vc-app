@@ -165,7 +165,7 @@
 
     <script src="supabase.js"></script>
     <script src="auth.js"></script>
-    <script src="script.js?v=2.3.0"></script>
+    <script src="script.js?v=2.5.0"></script>
     <script>
         window.addEventListener('scroll', () => {
             document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 50);
@@ -204,7 +204,7 @@
             }
             document.getElementById('homeSermons').innerHTML = isQuota
                 ? '<div class="empty-state"><h3>Cuota alcanzada</h3><p>Limite diario de YouTube. Recarga mas tarde — se usa cache local.</p></div>'
-                : '<div class="empty-state"><h3>Error al cargar</h3><p>No se pudieron cargar las predicaciones. Verifica que el servidor este corriendo en localhost:5000.</p></div>';
+                : '<div class="empty-state"><h3>Error al cargar</h3><p>No se pudieron cargar las predicaciones. Verifica tu conexion a internet.</p></div>';
         });
     </script>
 </body>

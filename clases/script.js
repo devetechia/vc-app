@@ -110,7 +110,7 @@ async function fetchYouTubeVideos(maxResults = 50, pageToken = '') {
         res = await fetch(url);
     } catch (networkErr) {
         console.error('[Academia] Network error fetching videos:', networkErr);
-        throw new Error('No se pudo conectar con el servidor. Verifica que esté corriendo en localhost:5000.');
+        throw new Error('No se pudo conectar con el servidor. Verifica tu conexion a internet.');
     }
     if (!res.ok) {
         console.error('[Academia] HTTP error', res.status, res.statusText);
