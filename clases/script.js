@@ -838,7 +838,7 @@ function renderTitleWithSeparators(title) {
 }
 
 // ===== SERMON BADGE HELPER =====
-const NO_TRANSCRIPT_IDS = ['lPAHis7WqXw', 'MgHTULjQdJI', 'az_L2h47m8Q'];
+const NO_TRANSCRIPT_IDS = ['MgHTULjQdJI', 'az_L2h47m8Q'];
 
 function getSermonBadges(videoId, index, append) {
     const isWatched = isVideoWatched(videoId);
