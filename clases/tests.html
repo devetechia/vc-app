@@ -200,6 +200,11 @@
             answers = [];
             pendingQuizTranscript = '';
 
+            if (typeof NO_TRANSCRIPT_IDS !== 'undefined' && NO_TRANSCRIPT_IDS.includes(videoId)) {
+                document.getElementById('quizContainer').innerHTML = '<div class="empty-state"><h3>Sin transcripcion</h3><p>Este video no tiene transcripcion disponible para generar preguntas.</p></div>';
+                return;
+            }
+
             document.getElementById('quizSelect').style.display = 'none';
             document.getElementById('quizManual').style.display = 'none';
             document.getElementById('quizPlay').style.display = 'block';
