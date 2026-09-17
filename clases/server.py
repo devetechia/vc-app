@@ -38,7 +38,7 @@ CORS(app, origins=[
 
 # ===== RATE LIMITING (simple in-memory, per-IP) =====
 _rate_limit_store = defaultdict(list)
-RATE_LIMIT窗口 = 300  # 5 minutes
+RATE_LIMIT_WINDOW = 300  # 5 minutes
 RATE_LIMIT_MAX = 10   # max requests per window
 
 def _check_rate_limit(ip, endpoint):
