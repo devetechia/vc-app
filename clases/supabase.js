@@ -141,6 +141,16 @@ async function deleteStudyFromDB(videoId) {
     return await sbDelete('studies', videoId);
 }
 
+// Quiz cache (stores generated quiz questions, not results)
+async function getQuizCacheFromDB(videoId) {
+    const rows = await sbQuery('studies', q => q.eq('video_id', 'quiz_' + videoId));
+    return rows && rows.length ? rows[0].result : null;
+}
+
+async function saveQuizCacheToDB(videoId, title, result) {
+    return await sbUpsert('studies', { video_id: 'quiz_' + videoId, title, result });
+}
+
 // Transcripts
 async function getTranscriptFromDB(videoId) {
     const rows = await sbQuery('transcripts', q => q.eq('video_id', videoId));

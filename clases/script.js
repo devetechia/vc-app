@@ -568,11 +568,31 @@ function getQuizHistory() { return getStorage('academia_quizzes') || []; }
 function saveQuizResult(result) { const q = getQuizHistory(); q.unshift(result); setStorage('academia_quizzes', q.slice(0, 50)); }
 
 // ===== DATA LAYER: Supabase (logged in) or localStorage (guest) =====
-function getCachedStudy(videoId) { return getStorage('academia_study_' + videoId); }
+async function getCachedStudy(videoId) {
+    const local = getStorage('academia_study_' + videoId);
+    if (local) return local;
+    if (typeof isLoggedIn === 'function' && isLoggedIn() && typeof getStudyFromDB === 'function') {
+        try {
+            const db = await getStudyFromDB(videoId);
+            if (db) { setStorage('academia_study_' + videoId, db); return db; }
+        } catch {}
+    }
+    return null;
+}
 function setCachedStudy(videoId, data) { setStorage('academia_study_' + videoId, data); if (typeof isLoggedIn === 'function' && isLoggedIn()) { saveStudyToDB(videoId, '', data).catch(()=>{}); } }
 
-function getCachedQuiz(videoId) { return getStorage('academia_quiz_' + videoId); }
-function setCachedQuiz(videoId, data) { setStorage('academia_quiz_' + videoId, data); }
+async function getCachedQuiz(videoId) {
+    const local = getStorage('academia_quiz_' + videoId);
+    if (local) return local;
+    if (typeof isLoggedIn === 'function' && isLoggedIn() && typeof getQuizCacheFromDB === 'function') {
+        try {
+            const db = await getQuizCacheFromDB(videoId);
+            if (db) { setStorage('academia_quiz_' + videoId, db); return db; }
+        } catch {}
+    }
+    return null;
+}
+function setCachedQuiz(videoId, data) { setStorage('academia_quiz_' + videoId, data); if (typeof isLoggedIn === 'function' && isLoggedIn() && typeof saveQuizCacheToDB === 'function') { saveQuizCacheToDB(videoId, '', data).catch(()=>{}); } }
 
 function getCachedTranscript(videoId) { return getStorage('academia_transcript_' + videoId); }
 function setCachedTranscript(videoId, data) { setStorage('academia_transcript_' + videoId, data); if (typeof isLoggedIn === 'function' && isLoggedIn()) { saveTranscriptToDB(videoId, JSON.stringify(data), 'auto').catch(()=>{}); } }
@@ -1301,7 +1321,7 @@ function searchSermonsDeep(query, videos = []) {
         }
 
         // 4. Coincidencia en estudio bíblico IA cacheado
-        const cachedStudy = getCachedStudy(v.id);
+        const cachedStudy = getStorage('academia_study_' + v.id);
         if (cachedStudy && typeof cachedStudy === 'object') {
             const studyStr = JSON.stringify(cachedStudy);
             if (normalizeSearchStr(studyStr).includes(qNorm)) {

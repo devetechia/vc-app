@@ -207,7 +207,7 @@
             document.getElementById('quizPlayTitle').textContent = title;
             document.getElementById('btnBackToStudy').href = `estudio.html?id=${videoId}`;
 
-            const cached = getCachedQuiz(videoId);
+            const cached = await getCachedQuiz(videoId);
             if (cached) {
                 currentQuiz = cached;
                 renderQuizQuestions();

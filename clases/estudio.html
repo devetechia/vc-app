@@ -412,9 +412,8 @@
             document.querySelectorAll('.studio-panel').forEach(p => p.classList.remove('active'));
             document.getElementById('panel-study').classList.add('active');
             const noT = document.getElementById('studyNoTranscript');
-            const cached = getCachedStudy(videoId);
             if (noT) noT.style.display = 'none';
-            startStudy(true);
+            startStudy(false);
         });
 
         document.getElementById('btnGoNotes')?.addEventListener('click', () => {
@@ -430,7 +429,7 @@
             const noTranscript = document.getElementById('studyNoTranscript');
 
             if (!force) {
-                const cached = getCachedStudy(videoId);
+                const cached = await getCachedStudy(videoId);
                 if (cached) {
                     renderStudyResults('studyResults', cached);
                     results.style.display = 'block';
@@ -501,7 +500,7 @@
                     document.querySelectorAll('.studio-panel').forEach(p => p.classList.remove('active'));
                     document.querySelector('[data-tab="study"]').classList.add('active');
                     document.getElementById('panel-study').classList.add('active');
-                    startStudy(true);
+                    startStudy(false);
                 }
             }, 500);
             setTimeout(() => {
@@ -534,7 +533,7 @@
             navigator.clipboard.writeText(text.trim()).then(() => showToast('Copiado'));
         });
         document.getElementById('btnStudyPdf').addEventListener('click', async () => {
-            const cached = getCachedStudy(videoId);
+            const cached = await getCachedStudy(videoId);
             if (!cached) { showToast('Genera primero el estudio'); return; }
             const title = document.getElementById('videoTitle').textContent;
             try { await exportStudyPDF(title, cached); }
@@ -565,10 +564,12 @@
         });
 
         // Check if cached study exists - show study panel if so
-        if (getCachedStudy(videoId)) {
-            document.querySelectorAll('.studio-panel').forEach(p => p.classList.remove('active'));
-            document.getElementById('panel-study').classList.add('active');
-        }
+        (async () => {
+            if (await getCachedStudy(videoId)) {
+                document.querySelectorAll('.studio-panel').forEach(p => p.classList.remove('active'));
+                document.getElementById('panel-study').classList.add('active');
+            }
+        })();
     </script>
 </body>
 </html>

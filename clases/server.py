@@ -79,7 +79,7 @@ def _supabase_get_transcript(video_id):
             f"{SUPABASE_URL}/rest/v1/transcripts",
             params={
                 "video_id": f"eq.{video_id}",
-                "select": "transcript_data,source,created_at",
+                "select": "transcript,source,created_at",
                 "limit": "1"
             },
             headers={
@@ -93,7 +93,16 @@ def _supabase_get_transcript(video_id):
             rows = resp.json()
             if rows:
                 print(f"Supabase cache hit para {video_id} (source: {rows[0].get('source', '?')})")
-                return rows[0].get("transcript_data")
+                raw = rows[0].get("transcript")
+                if isinstance(raw, str):
+                    import json as _json_parse
+                    try:
+                        raw = _json_parse.loads(raw)
+                    except Exception:
+                        pass
+                if isinstance(raw, list):
+                    return {"entries": raw, "transcript": " ".join(e.get("text", "") for e in raw)}
+                return raw
     except Exception as e:
         print(f"Supabase read error: {e}")
     return None
@@ -107,7 +116,7 @@ def _supabase_save_transcript(video_id, data, source="auto"):
             f"{SUPABASE_URL}/rest/v1/transcripts",
             json={
                 "video_id": video_id,
-                "transcript_data": data,
+                "transcript": data,
                 "source": source
             },
             headers={
