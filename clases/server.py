@@ -60,12 +60,67 @@ GROK_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 PROXY_URL = os.getenv("PROXY_URL", "")  # ej: http://user:pass@proxy.webshare.io:80
 SUPADATA_API_KEY = os.getenv("SUPADATA_API_KEY", "")
 TRANSCRIPTAPI_KEY = os.getenv("TRANSCRIPTAPI_KEY", "")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://ndhvqhzfsdedhstllpic.supabase.co")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5kaHZxaHpmc2RlZGhzdGxscGljIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTEzNTc4OSwiZXhwIjoyMTA0NzExNzg5fQ.uzDWf3WeoJA5ToW7IaXzDwjtI1c044FuLnek9UUZvOM")
 
 # Validación de API Keys (ADR-001)
 if not YT_API_KEY:
     print("⚠️  WARNING: YT_API_KEY no configurada. Configure .env o variable de entorno.")
 if not OPENROUTER_KEY:
     print("⚠️  WARNING: OPENROUTER_KEY no configurada. Configure .env o variable de entorno.")
+
+# ===== SUPABASE PERSISTENT CACHE =====
+def _supabase_get_transcript(video_id):
+    """Read transcript from Supabase (persistent cache)."""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return None
+    try:
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/transcripts",
+            params={
+                "video_id": f"eq.{video_id}",
+                "select": "transcript_data,source,created_at",
+                "limit": "1"
+            },
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Prefer": "return=representation"
+            },
+            timeout=10
+        )
+        if resp.status_code == 200:
+            rows = resp.json()
+            if rows:
+                print(f"Supabase cache hit para {video_id} (source: {rows[0].get('source', '?')})")
+                return rows[0].get("transcript_data")
+    except Exception as e:
+        print(f"Supabase read error: {e}")
+    return None
+
+def _supabase_save_transcript(video_id, data, source="auto"):
+    """Save transcript to Supabase (persistent cache)."""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return
+    try:
+        requests.post(
+            f"{SUPABASE_URL}/rest/v1/transcripts",
+            json={
+                "video_id": video_id,
+                "transcript_data": data,
+                "source": source
+            },
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal"
+            },
+            timeout=10
+        )
+        print(f"Supabase: transcript guardado para {video_id}")
+    except Exception as e:
+        print(f"Supabase save error: {e}")
 
 def get_proxy_config():
     if not PROXY_URL:
@@ -241,7 +296,12 @@ def get_transcript():
     if not video_id:
         return jsonify({"error": "videoId required"}), 400
 
-    # Cache en disco (30 días - las transcripciones de YouTube no cambian)
+    # 1. Check Supabase persistent cache first (survives restarts)
+    supabase_data = _supabase_get_transcript(video_id)
+    if supabase_data:
+        return jsonify(supabase_data)
+
+    # 2. Check local file cache (30 días)
     cache_dir = Path(tempfile.gettempdir()) / "transcript_cache"
     cache_dir.mkdir(exist_ok=True)
     cache_file = cache_dir / f"{video_id}.json"
@@ -250,7 +310,9 @@ def get_transcript():
             import json as _json_cache
             cached = _json_cache.loads(cache_file.read_text(encoding="utf-8"))
             if time.time() - cached.get("ts", 0) < 2592000:  # 30 días
-                print(f"Transcript cache hit para {video_id}")
+                print(f"File cache hit para {video_id}")
+                # Promote to Supabase for persistence
+                _supabase_save_transcript(video_id, cached["data"])
                 return jsonify(cached["data"])
         except Exception:
             pass
@@ -262,6 +324,8 @@ def get_transcript():
             cache_file.write_text(__import__('json').dumps({"ts": time.time(), "data": data}, ensure_ascii=False), encoding="utf-8")
         except Exception:
             pass
+        # Also save to Supabase for persistence
+        _supabase_save_transcript(video_id, data)
         return jsonify(data)
 
     # Intento 1: youtube_transcript_api (rápido, soporta auto-generados y extrae timestamps exactos)
