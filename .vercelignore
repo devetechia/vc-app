@@ -1,0 +1,12 @@
+app/
+node_modules/
+.env
+.env.*
+cookies.txt
+*.pyc
+__pycache__/
+fly.toml
+Dockerfile
+.dockerignore
+test-auth.mjs
+iniciar.bat
