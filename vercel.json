@@ -6,11 +6,10 @@
       "use": "@vercel/static"
     }
   ],
-  "routes": [
-    {
-      "src": "/clases/(.*)",
-      "dest": "/$1"
-    }
+  "redirects": [
+    { "source": "/clases", "destination": "/" },
+    { "source": "/clases/", "destination": "/" },
+    { "source": "/clases/(.*)", "destination": "/$1" }
   ],
   "headers": [
     {
