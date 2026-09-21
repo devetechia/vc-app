@@ -2,23 +2,19 @@
   "version": 2,
   "builds": [
     {
-      "src": "clases/**",
+      "src": "**",
       "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/clases/(.*)",
-      "dest": "/clases/$1"
-    },
-    {
-      "src": "/",
-      "dest": "/clases/index.html"
+      "dest": "/$1"
     }
   ],
   "headers": [
     {
-      "source": "/clases/(.*)",
+      "source": "/(.*)",
       "headers": [
         { "key": "Access-Control-Allow-Origin", "value": "*" }
       ]
