@@ -1,7 +1,3 @@
 {
-  "redirects": [
-    { "source": "/clases", "destination": "/" },
-    { "source": "/clases/", "destination": "/" },
-    { "source": "/clases/(.*)", "destination": "/$1" }
-  ]
+  "trailingSlash": true
 }
