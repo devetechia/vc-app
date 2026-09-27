@@ -43,7 +43,7 @@ RATE_LIMIT_MAX = 10   # max requests per window
 
 def _check_rate_limit(ip, endpoint):
     now = time.time()
-    _rate_limit_store[f"{ip}:{endpoint}"] = [t for t in _rate_limit_store[f"{ip}:{endpoint}"] if now - t < RATE_LIMIT窗口]
+    _rate_limit_store[f"{ip}:{endpoint}"] = [t for t in _rate_limit_store[f"{ip}:{endpoint}"] if now - t < RATE_LIMIT_WINDOW]
     if len(_rate_limit_store[f"{ip}:{endpoint}"]) >= RATE_LIMIT_MAX:
         return False
     _rate_limit_store[f"{ip}:{endpoint}"].append(now)
