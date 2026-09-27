@@ -80,6 +80,9 @@ YT_API_KEY = os.getenv("YT_API_KEY", "")
 YT_CHANNEL_ID = os.getenv("YT_CHANNEL_ID", "UCRpj-vU_Nu6UaxJJvGI7jAA")
 OPENROUTER_KEY = os.getenv("OPENROUTER_KEY", "")
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "poolside/laguna-s-2.1:free")
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
+NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "z-ai/glm-5.3")
+NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 GROK_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 PROXY_URL = os.getenv("PROXY_URL", "")  # ej: http://user:pass@proxy.webshare.io:80
 SUPADATA_API_KEY = os.getenv("SUPADATA_API_KEY", "")
@@ -807,6 +810,48 @@ def _call_openrouter(prompt):
     raise Exception(last_error or "All models failed")
 
 
+def _call_nvidia(prompt):
+    """Fallback provider: NVIDIA Integrate API (OpenAI-compatible)."""
+    if not NVIDIA_API_KEY:
+        raise Exception("NVIDIA_API_KEY no configurada")
+    try:
+        resp = requests.post(
+            NVIDIA_API_URL,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {NVIDIA_API_KEY}",
+            },
+            json={
+                "model": NVIDIA_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.7,
+                "top_p": 1,
+                "max_tokens": 16384,
+                "stream": False,
+            },
+            timeout=120,
+        )
+        data = resp.json()
+        if "choices" in data and data["choices"]:
+            print(f"Success with Nvidia model: {NVIDIA_MODEL}")
+            return data["choices"][0]["message"]["content"]
+        raise Exception(data.get("error", {}).get("message") or str(data)[:500])
+    except Exception as e:
+        print(f"Nvidia fallback failed: {e}")
+        raise
+
+
+def _call_ai(prompt):
+    """OpenRouter primario, Nvidia respaldo."""
+    try:
+        return _call_openrouter(prompt)
+    except Exception as e:
+        print(f"OpenRouter failed, intentando Nvidia: {e}")
+        if NVIDIA_API_KEY:
+            return _call_nvidia(prompt)
+        raise
+
+
 # ===== STUDY =====
 @app.route("/api/study", methods=["POST"])
 def bible_study():
@@ -875,7 +920,7 @@ Transcripción:
 IMPORTANTE: Sé exhaustivo y profundo. El objetivo es entender la predicación en profundidad."""
 
     try:
-        result = _call_openrouter(prompt)
+        result = _call_ai(prompt)
         return jsonify({"result": result})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -932,7 +977,7 @@ Transcripción:
 Responde SOLO con las preguntas en el formato indicado, sin explicaciones adicionales."""
 
     try:
-        result = _call_openrouter(prompt)
+        result = _call_ai(prompt)
         return jsonify({"result": result})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
