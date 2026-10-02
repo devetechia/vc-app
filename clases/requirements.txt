@@ -5,3 +5,4 @@ python-dotenv==1.2.3
 youtube-transcript-api==1.2.4
 yt-dlp==2026.8.19
 gunicorn==23.0.0
+tzdata==2025.2

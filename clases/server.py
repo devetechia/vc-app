@@ -325,6 +325,84 @@ def get_videos():
         return jsonify({"error": str(e), "items": []}), 500
 
 
+# ===== LIVE (deteccion de directos dom 10-14h Madrid) =====
+from live_status import (
+    check_live_status as _check_live,
+    cache_ttl as _live_ttl,
+    LIVE_QUOTA_CAP,
+    LIVE_TZ,
+)
+from datetime import datetime as _dt
+from zoneinfo import ZoneInfo as _ZI
+
+_live_cache = {"ts": 0.0, "data": None, "is_live": False}
+_live_quota = {"date": "", "used": 0}
+
+
+def _live_today():
+    return _dt.now(_ZI(LIVE_TZ)).strftime("%Y-%m-%d")
+
+
+def _live_search(event_type):
+    """Una llamada search.list (100 uds cuota). Devuelve primer item o None."""
+    r = requests.get(
+        "https://www.googleapis.com/youtube/v3/search",
+        params={
+            "key": YT_API_KEY,
+            "channelId": YT_CHANNEL_ID,
+            "part": "snippet",
+            "eventType": event_type,
+            "type": "video",
+            "maxResults": 5,
+            "order": "date" if event_type == "upcoming" else "viewCount",
+        },
+        timeout=15,
+    )
+    data = r.json()
+    if "error" in data:
+        print(f"/api/live search {event_type} error: {data['error'].get('message', data['error'])}")
+        return None
+    items = data.get("items", [])
+    if not items:
+        return None
+    first = items[0]
+    out = {
+        "videoId": (first.get("id") or {}).get("videoId"),
+        "title": (first.get("snippet") or {}).get("title", ""),
+    }
+    if event_type == "upcoming":
+        out["scheduled"] = (first.get("snippet") or {}).get("publishedAt", "")
+    return out
+
+
+@app.route("/api/live")
+def live_status():
+    ip = request.remote_addr or "unknown"
+    if not _check_rate_limit(ip, "live"):
+        return jsonify({"error": "Demasiadas solicitudes. Intenta de nuevo en 5 minutos."}), 429
+
+    today = _live_today()
+    if _live_quota["date"] != today:
+        _live_quota["date"] = today
+        _live_quota["used"] = 0
+
+    now_ts = time.time()
+    if _live_cache["data"] and (now_ts - _live_cache["ts"] < _live_ttl(_live_cache["is_live"])):
+        cached = dict(_live_cache["data"])
+        cached["cached"] = True
+        return jsonify(cached)
+
+    def fetcher(kind):
+        _live_quota["used"] += 100
+        return _live_search(kind)
+
+    result = _check_live(fetcher=fetcher, quota_used=_live_quota["used"], quota_cap=LIVE_QUOTA_CAP)
+    result["cached"] = False
+    result["quotaUsed"] = _live_quota["used"]
+    _live_cache.update({"ts": now_ts, "data": result, "is_live": bool(result.get("live"))})
+    return jsonify(result)
+
+
 # ===== TRANSCRIPT (youtube_transcript_api -> whisper fallback) =====
 @app.route("/api/transcript")
 def get_transcript():

@@ -1339,6 +1339,19 @@ function searchSermonsDeep(query, videos = []) {
 }
 
 
+// ===== DIRECTOS (via /api/live en Fly, con guardarrailes de cuota) =====
+async function fetchLiveStatus() {
+    try {
+        const res = await fetch(`${API_BASE}/api/live`);
+        if (!res.ok) return { live: false };
+        return await res.json();
+    } catch (e) {
+        console.warn('[Academia] No se pudo consultar /api/live:', e);
+        return { live: false };
+    }
+}
+
+
 
 
 
