@@ -503,25 +503,70 @@ function escapeHtml(str) {
  * Orden correcto: 1) markdown→HTML, 2) sanitizar con DOMPurify.
  * ADR-003: Mitigación de XSS.
  */
-function renderMarkdown(text) {
-    if (!text) return '';
-    // 1) Convertir markdown a HTML (solo reemplazos seguros, NO inyectar HTML crudo)
-    const html = text
-        // Encabezados
-        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-        // Listas
-        .replace(/^\s*[-*]\s+(.+)$/gm, '<li>$1</li>')
-        // Negrita e itálica (escapar primero para no confundir con markdown del usuario)
+function inlineMarkdown(s) {
+    return (s || '')
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        // Código inline
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        // Saltos de línea
-        .replace(/\n\n/g, '</p><p>')
-        .replace(/\n/g, '<br>');
-    
+        .replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
+function renderMarkdown(text) {
+    if (!text) return '';
+    let html = '';
+    const lines = text.split('\n');
+    let i = 0;
+    let inPara = false;
+    const closePara = () => { if (inPara) { html += '</p>'; inPara = false; } };
+
+    while (i < lines.length) {
+        const t = lines[i].trim();
+        if (!t) { closePara(); i++; continue; }
+
+        // Blockquote (agrupa lineas consecutivas con >)
+        if (t.startsWith('>')) {
+            closePara();
+            const bq = [];
+            while (i < lines.length && lines[i].trim().startsWith('>')) {
+                bq.push(lines[i].trim().replace(/^>\s?/, ''));
+                i++;
+            }
+            html += '<blockquote>' + inlineMarkdown(bq.join(' ')) + '</blockquote>';
+            continue;
+        }
+
+        // Encabezados
+        const h = t.match(/^(#{1,4})\s+(.+)$/);
+        if (h) {
+            closePara();
+            const lvl = h[1].length;
+            html += `<h${lvl}>${inlineMarkdown(h[2])}</h${lvl}>`;
+            i++;
+            continue;
+        }
+
+        // Listas (viñetas - * o numeradas 1. )
+        if (/^[-*]\s+/.test(t) || /^\d+[.)]\s+/.test(t)) {
+            closePara();
+            const ordered = /^\d+[.)]\s+/.test(t);
+            html += ordered ? '<ol>' : '<ul>';
+            while (i < lines.length) {
+                const lt = lines[i].trim();
+                const m = lt.match(/^[-*]\s+(.+)$/) || lt.match(/^\d+[.)]\s+(.+)$/);
+                if (!m) break;
+                html += '<li>' + inlineMarkdown(m[1]) + '</li>';
+                i++;
+            }
+            html += ordered ? '</ol>' : '</ul>';
+            continue;
+        }
+
+        // Párrafo
+        if (!inPara) { html += '<p>'; inPara = true; }
+        html += inlineMarkdown(t) + ' ';
+        i++;
+    }
+    closePara();
+
     // 2) Sanitizar con DOMPurify (permite markdown seguro)
     if (typeof DOMPurify !== 'undefined') {
         return DOMPurify.sanitize(html, {
@@ -532,6 +577,31 @@ function renderMarkdown(text) {
     // Fallback si DOMPurify no carga (menos seguro pero funcional)
     console.warn('DOMPurify no disponible, usando escape fallback');
     return escapeHtml(html);
+}
+
+// ===== ESTUDIO PUBLICADO (markdown estático, sin IA en el momento) =====
+async function fetchPublishedStudy(videoId) {
+    try {
+        const res = await fetch('estudios/' + encodeURIComponent(videoId) + '.md', { cache: 'no-store' });
+        if (!res.ok) return null;
+        return await res.text();
+    } catch (e) {
+        return null;
+    }
+}
+
+function renderPublishedStudy(md) {
+    const container = document.getElementById('publishedStudy');
+    if (!container) return;
+    const content = container.querySelector('.published-study-content');
+    if (content) content.innerHTML = renderMarkdown(md);
+    const loading = document.getElementById('studyLoading');
+    const results = document.getElementById('studyResults');
+    const error = document.getElementById('studyError');
+    if (loading) loading.style.display = 'none';
+    if (results) results.style.display = 'none';
+    if (error) error.style.display = 'none';
+    container.style.display = 'block';
 }
 
 // ===== LOCALSTORAGE =====

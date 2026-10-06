@@ -190,6 +190,14 @@
                 <div class="bible-section" id="bibleContext"><h3>Contexto y Explicacion</h3><div class="bible-section-content"></div></div>
                 <div class="bible-section" id="bibleStudy"><h3>Para Profundizar</h3><div class="bible-section-content"></div></div>
             </div>
+            <div id="publishedStudy" style="display:none;">
+                <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center;">
+                    <span style="color:var(--gold); font-weight:700; font-size:13px;">📖 Estudio biblico preparado por la iglesia</span>
+                    <button class="btn btn-sm btn-outline" id="btnStudyPdfPublished" style="font-size:13px;">Descargar PDF</button>
+                    <button class="btn btn-sm btn-outline" id="btnRegenerateStudyPublished" style="font-size:13px;">Regenerar con IA</button>
+                </div>
+                <div class="bible-section"><div class="published-study-content"></div></div>
+            </div>
             <div id="studyError" style="display:none;">
                 <div class="empty-state"><h3>Error</h3><p>No se pudo generar el estudio. Verifica tu conexion.</p><button class="btn btn-primary btn-sm" id="btnRetryStudy">Reintentar</button></div>
             </div>
@@ -213,7 +221,7 @@
 
     <script src="supabase.js"></script>
     <script src="auth.js"></script>
-    <script src="script.js?v=2.6.0"></script>
+    <script src="script.js?v=2.7.0"></script>
     <script>
         const videoId = getUrlParam('id');
         if (!videoId) { window.location.href = 'predicaciones.html'; }
@@ -437,6 +445,16 @@
             }
 
             if (!force) {
+                // 1) Estudio publicado (markdown estático, sin IA)
+                if (typeof fetchPublishedStudy === 'function') {
+                    const published = await fetchPublishedStudy(videoId);
+                    if (published) {
+                        if (typeof renderPublishedStudy === 'function') renderPublishedStudy(published);
+                        else renderStudyResults('studyResults', published);
+                        return;
+                    }
+                }
+                // 2) Caché local / por usuario
                 const cached = await getCachedStudy(videoId);
                 if (cached) {
                     renderStudyResults('studyResults', cached);
@@ -448,6 +466,8 @@
             loading.style.display = 'none';
             results.style.display = 'none';
             error.style.display = 'none';
+            const publishedEl = document.getElementById('publishedStudy');
+            if (publishedEl) publishedEl.style.display = 'none';
             if (noTranscript) noTranscript.style.display = 'none';
 
             // Auto-fetch transcript if not loaded yet
@@ -525,6 +545,19 @@
             try { localStorage.removeItem('academia_study_' + videoId); } catch {}
             rawEntries = null;
             startStudy(true);
+        });
+        document.getElementById('btnRegenerateStudyPublished')?.addEventListener('click', () => {
+            const publishedEl = document.getElementById('publishedStudy');
+            if (publishedEl) publishedEl.style.display = 'none';
+            rawEntries = null;
+            startStudy(true);
+        });
+        document.getElementById('btnStudyPdfPublished')?.addEventListener('click', async () => {
+            const title = document.getElementById('videoTitle')?.textContent || 'Estudio';
+            const md = await fetchPublishedStudy(videoId);
+            if (!md) { showToast('Estudio no disponible'); return; }
+            try { await exportStudyPDF(title, md); }
+            catch (e) { console.error(e); showToast('Error al generar PDF'); }
         });
         const btnLoadForStudy = document.getElementById('btnLoadTranscriptForStudy');
         if (btnLoadForStudy) btnLoadForStudy.addEventListener('click', loadTranscriptThenStudy);

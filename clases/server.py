@@ -80,6 +80,8 @@ YT_API_KEY = os.getenv("YT_API_KEY", "")
 YT_CHANNEL_ID = os.getenv("YT_CHANNEL_ID", "UCRpj-vU_Nu6UaxJJvGI7jAA")
 OPENROUTER_KEY = os.getenv("OPENROUTER_KEY", "")
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "poolside/laguna-s-2.1:free")
+STUDY_MODEL = os.getenv("STUDY_MODEL", "deepseek/deepseek-chat")
+ADMIN_KEY = os.getenv("ADMIN_KEY", "")
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
 NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "z-ai/glm-5.3")
 NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
@@ -930,6 +932,105 @@ def _call_ai(prompt):
         raise
 
 
+# ===== ESTUDIO BIBLICO DE NIVEL SEMINARIO =====
+STUDY_PROMPT_HEAD = """Eres un exegeta y teologo de nivel seminario. A partir de la TRANSCRIPCION de una predicacion cristiana evangelica, produce un ESTUDIO BIBLICO PROFUNDO, fiel a lo que se predico y a los pasajes citados.
+
+NORMAS ESTRICTAS (anti-alucinacion):
+1. Solo exegetiza los versiculos que el predicador MENCIONA EXPLICITAMENTE en la transcripcion. Si anades un pasaje de apoyo, marcalo como "(pasaje de apoyo, no citado por el predicador)".
+2. Cita todo texto biblico en Reina-Valera 1960 (RVR1960) y verificalo. Nunca presentes una parafrasis como cita literal.
+3. Distingue siempre: CITA DIRECTA (el predicador lo leyo), ALUSION (referencia implicita) e INTERPRETACION (tuya, etiquetada como tal).
+4. No inventes datos historicos, nombres, fechas ni doctrinas. Si la transcripcion no aporta lo necesario para una seccion, dices que no hay suficiente informacion y no rellenas.
+5. Separa SIEMPRE "lo que el predicador dijo" de "lo que el pasaje biblico significa en su contexto".
+6. Ignora la introduccion, saludos, anuncios y cantos de alabanza: centrate en la predicacion propiamente dicha.
+
+FORMATO OBLIGATORIO: responde SOLO en markdown, con estos encabezados exactos (##) y en este orden:
+
+## Idea central
+Una frase que resume la tesis del mensaje.
+
+## Contexto de la predicacion
+Quien predica, la ocasion y el punto de partida del mensaje (solo lo deducible de la transcripcion).
+
+## Estructura del mensaje
+Como organizo el predicador su argumento, en puntos.
+
+## Exegesis de los textos citados
+Para cada versiculo mencionado, sigue este patron:
+### N. Referencia
+> "texto en RVR1960"
+
+**Como lo uso el predicador.**
+**Contexto biblico original.**
+**Que significa en contexto.**
+**Por que es clave para el mensaje.**
+
+## Analisis teologico
+Las doctrinas que subyacen al mensaje, explicadas sin inventar sistematizaciones ajenas.
+
+## Contexto historico y espiritual
+Trasfondo de los pasajes y su horizonte (si es deducible; si no, dilo).
+
+## Temas para profundizar
+Varios hilos de estudio personal, cada uno con su referencia y una pregunta.
+
+## Puente entonces a ahora
+El principio que se traslada a la vida actual.
+
+## Preguntas de reflexion
+Preguntas cerradas al contenido predicado, no genericas.
+
+## Aplicacion practica
+Pasos concretos y verificables.
+
+## Versiculo clave
+El versiculo de anclaje y por que.
+
+## Para profundizar
+Pasajes afines (marcados como apoyo si no los cito el predicador).
+
+## Oracion sugerida
+Cierre pastoral breve.
+
+IMPORTANTE: exhaustivo y profundo, en espanol, sin encabezados fuera de los indicados."""
+
+
+def _call_model(prompt, model, max_tokens=16384, temperature=0.7):
+    """Una llamada a un modelo concreto de OpenRouter. Lanza excepcion en error."""
+    resp = requests.post(
+        GROK_API_URL,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {OPENROUTER_KEY}",
+        },
+        json={
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        },
+        timeout=240,
+    )
+    data = resp.json()
+    if "choices" in data and data["choices"]:
+        print(f"Success with model: {model}")
+        return data["choices"][0]["message"]["content"]
+    raise Exception(data.get("error", {}).get("message") or str(data)[:500])
+
+
+def _build_study_prompt(title, transcript):
+    return STUDY_PROMPT_HEAD + f"\n\n---\n\nTitulo: {title}\n\nTranscripcion:\n{transcript}\n"
+
+
+def _generate_study(title, transcript):
+    prompt = _build_study_prompt(title, transcript)
+    if STUDY_MODEL:
+        try:
+            return _call_model(prompt, STUDY_MODEL)
+        except Exception as e:
+            print(f"STUDY_MODEL {STUDY_MODEL} fallo, usando cadena de respaldo: {e}")
+    return _call_ai(prompt)
+
+
 # ===== STUDY =====
 @app.route("/api/study", methods=["POST"])
 def bible_study():
@@ -949,56 +1050,8 @@ def bible_study():
             transcript = fetched
             print(f"Study: transcript fetched via fallback, len={len(transcript)}")
 
-    prompt = f"""Eres un experto en estudios biblicos cristianos evangélicos. Analiza la siguiente predicacion y genera un ESTUDIO BIBLICO COMPLETO Y PROFUNDO.
-
-FORMATO (en español, markdown):
-
-## 📖 TEMA PRINCIPAL
-Tema central de la predicacion (2-3 párrafos).
-
-## 📝 RESUMEN
-Resumen claro y conciso (3-4 párrafos).
-
-## 🔍 ANÁLISIS POR SECCIONES
-Divide la predicacion en partes. Para cada una:
-- **Subtema**
-- **Explicación**
-- **Versículos usados**: referencia y por qué
-
-## 📚 VERSICULOS MENCIONADOS
-Para CADA versiculo citado:
-- **Referencia**: Libro Cap:Vers
-- **Texto completo**
-- **Contexto en la predicación**: por qué se mencionó
-- **Contexto bíblico original**: contexto en su libro
-- **Conexión con el tema**
-
-## 🧠 CONTEXTO HISTÓRICO Y ESPIRITUAL
-Contexto histórico, cultural y espiritual de los pasajes.
-
-## 💡 TEMAS PARA REFLEXIONAR
-5-7 temas profundos con explicación y pregunta.
-
-## 🙏 APLICACIÓN PRÁCTICA
-3-4 puntos concretos para la vida diaria.
-
-## 📌 VERSICULO CLAVE
-El versículo más importante y por qué.
-
-## 📖 PARA PROFUNDIZAR
-Otros pasajes relacionados.
-
----
-
-Título: {title}
-
-Transcripción:
-{transcript or 'No disponible. Analiza solo por el título: ' + title}
-
-IMPORTANTE: Sé exhaustivo y profundo. El objetivo es entender la predicación en profundidad."""
-
     try:
-        result = _call_ai(prompt)
+        result = _generate_study(title, transcript)
         return jsonify({"result": result})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1056,6 +1109,26 @@ Responde SOLO con las preguntas en el formato indicado, sin explicaciones adicio
 
     try:
         result = _call_ai(prompt)
+        return jsonify({"result": result})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/admin/generate", methods=["POST"])
+def admin_generate():
+    if not ADMIN_KEY:
+        return jsonify({"error": "admin no configurado"}), 403
+    if request.headers.get("X-Admin-Key") != ADMIN_KEY:
+        return jsonify({"error": "forbidden"}), 403
+    data = request.json or {}
+    title = data.get("title", "")
+    transcript = data.get("transcript", "")
+    if not title or not transcript:
+        return jsonify({"error": "title y transcript requeridos"}), 400
+    if len(transcript) > MAX_TRANSCRIPT_LEN:
+        return jsonify({"error": "transcript demasiado largo"}), 400
+    try:
+        result = _generate_study(title, transcript)
         return jsonify({"result": result})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
