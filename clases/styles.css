@@ -117,7 +117,8 @@ button { cursor: pointer; font-family: inherit; }
 .studio-tab { padding: 10px 20px; font-size: 13px; font-weight: 600; color: var(--text-muted); background: none; border: 1px solid var(--border); border-radius: 10px; transition: all 0.3s ease; }
 .studio-tab:hover { color: var(--text); border-color: var(--purple); }
 .studio-tab.active { background: var(--purple); color: white; border-color: var(--purple); }
-.studio-panel { display: none; max-width: min(80%, 1400px); margin: 0 auto; padding: 0 24px 48px; }
+/* El estudio se expande a todo el ancho, sin límite del contenedor global */
+.studio-panel { display: none; max-width: none; width: 100%; margin: 0; padding: 0 64px 48px; }
 .studio-panel.active { display: block; }
 
 /* ACTION CARDS */
@@ -150,6 +151,14 @@ button { cursor: pointer; font-family: inherit; }
 .published-study-content blockquote { margin: 16px 0; padding: 12px 20px; border-left: 3px solid var(--purple); background: rgba(139, 92, 246, 0.1); font-style: italic; text-indent: 0; }
 .published-study-content ul, .published-study-content ol { margin: 12px 0; padding-left: 2.5em; text-indent: 0; }
 .published-study-content li { margin-bottom: 8px; }
+
+/* FONT SIZE CONTROLS */
+.study-font-controls { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+.study-font-controls .font-btn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border); color: var(--text); font-size: 18px; cursor: pointer; transition: all 0.2s ease; }
+.study-font-controls .font-btn:hover { border-color: var(--purple); background: rgba(139, 92, 246, 0.1); }
+.study-font-controls .font-label { font-size: 13px; color: var(--text-muted); margin: 0 8px; }
+.study-font-controls .font-reset { font-size: 12px; padding: 6px 12px; }
+.study-font-controls .font-value { font-size: 13px; color: var(--gold); font-weight: 600; min-width: 36px; text-align: center; }
 .bible-verse-card { background: rgba(139, 92, 246, 0.1); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
 .bible-verse-ref { font-weight: 700; color: var(--gold); font-size: 14px; }
 .bible-verse-text { margin: 6px 0; font-style: italic; font-size: 14px; }
