@@ -135,11 +135,21 @@ button { cursor: pointer; font-family: inherit; }
 .transcript-toolbar span { font-size: 13px; color: var(--purple-light); min-width: 40px; }
 
 /* BIBLE STUDY */
-.bible-section { margin-bottom: 20px; padding: 20px; background: rgba(255, 255, 255, 0.03); border-radius: var(--radius); border-left: 3px solid var(--purple); }
-.bible-section h3 { font-size: 16px; margin-bottom: 12px; color: var(--gold); }
-.bible-section-content { color: var(--text); font-size: 15px; line-height: 1.8; max-width: 900px; }
-.bible-section-content p { margin-bottom: 12px; }
+.bible-section { margin-bottom: 24px; padding: 24px 32px; background: rgba(255, 255, 255, 0.03); border-radius: var(--radius); border-left: 4px solid var(--purple); }
+.bible-section h3 { font-size: 17px; margin-bottom: 16px; color: var(--gold); }
+.bible-section-content { color: var(--text); font-size: 16px; line-height: 1.9; max-width: none; padding-left: 16px; padding-right: 16px; }
+.bible-section-content p { margin-bottom: 14px; text-indent: 1.5em; }
+.bible-section-content p:first-child { text-indent: 0; }
 .bible-section-content strong { color: var(--purple-light); }
+
+.published-study-content { color: var(--text); font-size: 16px; line-height: 1.9; max-width: none; padding: 0 16px; }
+.published-study-content p { margin-bottom: 14px; text-indent: 1.5em; }
+.published-study-content p:first-child { text-indent: 0; }
+.published-study-content h2, .published-study-content h3 { margin-top: 24px; margin-bottom: 12px; color: var(--gold); text-indent: 0; }
+.published-study-content strong { color: var(--purple-light); }
+.published-study-content blockquote { margin: 16px 0; padding: 12px 20px; border-left: 3px solid var(--purple); background: rgba(139, 92, 246, 0.1); font-style: italic; text-indent: 0; }
+.published-study-content ul, .published-study-content ol { margin: 12px 0; padding-left: 2.5em; text-indent: 0; }
+.published-study-content li { margin-bottom: 8px; }
 .bible-verse-card { background: rgba(139, 92, 246, 0.1); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
 .bible-verse-ref { font-weight: 700; color: var(--gold); font-size: 14px; }
 .bible-verse-text { margin: 6px 0; font-style: italic; font-size: 14px; }
