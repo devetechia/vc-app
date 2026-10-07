@@ -143,6 +143,3 @@ El principio es que todo creyente es una oveja que necesita: (1) reconocer su in
 - **1 Pedro 2:25** "(pasaje de apoyo, no citado por el predicador)": "Porque vosotros estabais como ovejas desviadas, pero ahora habéis vuelto al Pastor y Obispo de vuestras almas."
 - **Ezequiel 34:11-16** "(pasaje de apoyo, no citado por el predicador)": Profecía sobre el buen pastor que busca a las dispersas.
 - **Hebreos 13:20** "(pasaje de apoyo, no citado por el predicador)": "El Dios de paz, que del sangre del pacto eterno restituyó por los pastores a nuestro Señor Jesús."
-
-## Oración sugerida
-Señor, gracias porque eres nuestro Pastor y nosotros tus ovejas. Ayúdanos a reconocer nuestra indefensión sin vergüenza, a mantener nuestra identidad en ti, a alimentarnos de tu Palabra y no de la basura del mundo, a seguir la voz de nuestro pastor local y a vivir en armonía con nuestros hermanos. Busca a las ovejas perdidas y traelas de vuelta al redil. En nombre de Jesús, amén.

@@ -318,12 +318,3 @@ Refuerza la urgencia de la lealtad al Rey (Pastor) y el peligro de la autonomía
 - **Lucas 9:23-26** (pasaje de apoyo, no citado) — "El que quiera venir en pos de mí, niéguese a sí mismo, tome su cruz cada día y sígame... ¿De qué le aprovecha al hombre ganar todo el mundo, si se pierde o se destruye a sí mismo?". Definición del Maestro de la fidelidad "para muerte o para vida".
 
 ---
-
-## Oración sugerida
-Señor Dios, Rey eterno y Ungido fiel:  
-Confieso que a menudo sigo la corona y no al Crucificado; busco el palacio y huyo del desierto.  
-Gracias por el ejemplo de Itai, el extranjero que te reconoció a ti en el rey rechazado y dijo: "Para muerte o para vida, allí estará tu siervo".  
-Corta hoy el cabello de mi orgullo —mis dones, mi imagen, mi ministerio, mi dolor— que tanto pesa y me ata a la encina de mi propia gloria.  
-Enséñame a tomar tu yugo fácil, a soltar el trono de mi vida y a declarar con hechos, no solo labios: "Vive Jehová, donde estés tú, allí estaré yo".  
-Hazme fiel en la prueba, leal en lo secreto, arrastrable en mi influencia, y que mi fidelidad no busque promoción terrenal sino la honra de tu nombre.  
-En el nombre de Jesús, el Rey que huyó por mí y vuelve por mí. Amén.
