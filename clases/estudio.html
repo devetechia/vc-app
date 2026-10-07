@@ -179,10 +179,9 @@
                 </div>
             </div>
             <div id="studyResults" style="display:none;">
-                <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+                <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; align-items:center;">
                     <button class="btn-copy-study" id="btnCopyStudy">Copiar todo</button>
-                    <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
-                    <button class="btn btn-sm btn-primary" id="btnStudyPdf" style="font-size:13px;">Descargar PDF</button>
+                    <button class="btn btn-gold" id="btnStudyPdf" style="font-size:14px; font-weight:600;">Descargar PDF</button>
                 </div>
                 <div class="bible-section" id="bibleSummary"><h3>Resumen</h3><div class="bible-section-content"></div></div>
                 <div class="bible-section" id="bibleMessage"><h3>Mensaje Principal</h3><div class="bible-section-content"></div></div>
@@ -191,9 +190,9 @@
                 <div class="bible-section" id="bibleStudy"><h3>Para Profundizar</h3><div class="bible-section-content"></div></div>
             </div>
             <div id="publishedStudy" style="display:none;">
-                <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center;">
+                <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; align-items:center;">
                     <span style="color:var(--gold); font-weight:700; font-size:13px;">📖 Estudio biblico preparado por la iglesia</span>
-                    <button class="btn btn-sm btn-primary" id="btnStudyPdfPublished" style="font-size:13px;">Descargar PDF</button>
+                    <button class="btn btn-gold" id="btnStudyPdfPublished" style="font-size:14px; font-weight:600;">Descargar PDF</button>
                 </div>
                 <div class="bible-section"><div class="published-study-content"></div></div>
             </div>
@@ -220,7 +219,7 @@
 
     <script src="supabase.js"></script>
     <script src="auth.js"></script>
-    <script src="script.js?v=2.9.1"></script>
+    <script src="script.js?v=2.10.0"></script>
     <script>
         const videoId = getUrlParam('id');
         if (!videoId) { window.location.href = 'predicaciones.html'; }
