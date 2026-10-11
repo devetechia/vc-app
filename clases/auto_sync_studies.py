@@ -26,7 +26,22 @@ def get_videos():
     url = f"{API_BASE}/api/videos?maxResults=50"
     r = requests.get(url, timeout=30)
     r.raise_for_status()
-    return r.json().get("items", [])
+    items = r.json().get("items", [])
+    # Filtrar videos publicados hace >= 2 días para dar tiempo a transcripción
+    from datetime import datetime, timezone, timedelta
+    cutoff = datetime.now(timezone.utc) - timedelta(days=2)
+    filtered = []
+    for v in items:
+        date_str = v.get("date", "")
+        try:
+            # ISO 8601
+            pub = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+            if pub <= cutoff:
+                filtered.append(v)
+        except Exception:
+            # Si no hay fecha válida, lo incluimos para no perderlo
+            filtered.append(v)
+    return filtered
 
 def study_exists(video_id):
     return (ESTUDIOS_DIR / f"{video_id}.md").exists()
