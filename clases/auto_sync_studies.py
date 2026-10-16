@@ -1,118 +1,305 @@
 #!/usr/bin/env python3
 """
-Auto-sync de estudios biblicos: detecta videos nuevos en YouTube y genera
-estudios markdown automaticamente en clases/estudios/.
-Se ejecuta desde el VPS donde corre server.py.
+Auto-sync de estudios biblicos (version Windows, pipeline verificada 2026-10-15).
+
+Pipeline por video nuevo (publicado hace >= 2 dias):
+  1. Lista de videos: GET {FLY_API_URL}/api/videos (deduplica reconexiones de directos)
+  2. Salta si clases/estudios/<id>.md ya existe
+  3. Transcripcion: GET {FLY_API_URL}/api/transcript?videoId=... (cadena de fallbacks con proxy)
+  4. Estudio: NVIDIA z-ai/glm-5.3 streaming, thinking=false, max_tokens=40000,
+     transcript recortado (14k inicio + 6k final), bucle de continuacion si se trunca
+  5. Limpia '## Oracion sugerida', valida 12 secciones, guarda markdown
+  6. git add + commit + push
+
+Ejecutar con: python3 auto_sync_studies.py   (solo stdlib; lee .env del directorio)
+Log: sync_studies.log
 """
+import json
 import os
 import re
-import json
+import subprocess
+import sys
 import time
-import requests
+import unicodedata
+import urllib.request
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from dotenv import load_dotenv
 
-load_dotenv()
+sys.stdout.reconfigure(encoding="utf-8")
 
-BASE_DIR = Path(__file__).parent
-ESTUDIOS_DIR = BASE_DIR / "estudios"
-API_BASE = os.getenv("API_BASE_URL", "http://localhost:5000")
-ADMIN_KEY = os.getenv("ADMIN_KEY", "")
-YT_CHANNEL_ID = os.getenv("YT_CHANNEL_ID", "")
+BASE = Path(__file__).parent
+LOG_FILE = BASE / "sync_studies.log"
 
-HEADERS = {"X-Admin-Key": ADMIN_KEY, "Content-Type": "application/json"}
+# --- .env (solo pares CLAVE=valor; el archivo esta en .gitignore) ---
+ENV = {}
+env_path = BASE / ".env"
+if env_path.exists():
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        m = re.match(r"^\s*([A-Z_]+)\s*=\s*(.*?)\s*$", line)
+        if m and m.group(2):
+            ENV[m.group(1)] = m.group(2)
+
+FLY_API_URL = ENV.get("FLY_API_URL", "https://academia-biblica-vc.fly.dev")
+NVIDIA_KEY = ENV.get("NVIDIA_API_KEY", "")
+NVIDIA_MODEL = ENV.get("NVIDIA_MODEL", "z-ai/glm-5.3")
+NV_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
+MIN_AGE_DAYS = 2
+
+
+def log(msg):
+    line = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {msg}"
+    print(line, flush=True)
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+
+def http_get_json(url, timeout):
+    req = urllib.request.Request(url, headers={"User-Agent": "vc-auto-sync/1.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode("utf-8"))
+
 
 def get_videos():
-    url = f"{API_BASE}/api/videos?maxResults=50"
-    r = requests.get(url, timeout=30)
-    r.raise_for_status()
-    items = r.json().get("items", [])
-    # Filtrar videos publicados hace >= 2 días para dar tiempo a transcripción
-    from datetime import datetime, timezone, timedelta
-    cutoff = datetime.now(timezone.utc) - timedelta(days=2)
-    filtered = []
-    for v in items:
+    data = http_get_json(f"{FLY_API_URL}/api/videos?maxResults=50", timeout=60)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=MIN_AGE_DAYS)
+    out = []
+    for v in data.get("items", []):
         date_str = v.get("date", "")
         try:
-            # ISO 8601
             pub = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
             if pub <= cutoff:
-                filtered.append(v)
-        except Exception:
-            # Si no hay fecha válida, lo incluimos para no perderlo
-            filtered.append(v)
-    return filtered
+                out.append(v)
+        except ValueError:
+            out.append(v)  # sin fecha valida no se filtra
+    return out
 
-def study_exists(video_id):
-    return (ESTUDIOS_DIR / f"{video_id}.md").exists()
 
-def generate_study(video_id, title):
-    # Intentar obtener transcripcion via API propia
+def get_transcript(video_id):
     try:
-        tr = requests.get(f"{API_BASE}/api/transcript", params={"videoId": video_id}, timeout=60)
-        if tr.status_code == 200:
-            data = tr.json()
-            transcript = data.get("transcript") or ""
-        else:
-            transcript = ""
-    except Exception:
-        transcript = ""
-    
-    payload = {"title": title, "transcript": transcript, "videoId": video_id}
-    r = requests.post(f"{API_BASE}/api/admin/generate", headers=HEADERS, json=payload, timeout=240)
-    if r.status_code != 200:
-        raise RuntimeError(f"Generacion fallida {r.status_code}: {r.text}")
-    return r.json().get("result", "")
+        data = http_get_json(f"{FLY_API_URL}/api/transcript?videoId={video_id}", timeout=420)
+        tr = data.get("transcript") or ""
+        if len(tr) > 500:
+            return tr
+        return None
+    except Exception as e:
+        log(f"    transcript error: {type(e).__name__}: {str(e)[:120]}")
+        return None
+
+
+NORMAS = """NORMAS (anti-alucinacion):
+1. Solo exegetiza los versiculos que el predicador MENCIONA EXPLICITAMENTE. Los pasajes de apoyo se marcan como "(pasaje de apoyo, no citado por el predicador)".
+2. Cita todo texto biblico en Reina-Valera 1960 (RVR1960). Nunca una parafrasis como cita literal.
+3. Distingue: CITA DIRECTA (el predicador lo leyo), ALUSION (referencia implicita) e INTERPRETACION (etiquetada).
+4. Separa siempre "lo que el predicador dijo" de "lo que el pasaje significa en su contexto".
+5. No inventes datos historicos, nombres, fechas ni doctrinas; si falta informacion, declralo.
+6. Ignora introduccion, saludos, anuncios y alabanza: centrate en la predicacion."""
+
+FORMAT_SPEC = """FORMATO OBLIGATORIO: responde SOLO en markdown, con estos encabezados exactos (##) y en este orden:
+
+## Idea central
+Una frase que resume la tesis del mensaje.
+
+## Contexto de la predicacion
+Quien predica, la ocasion y el punto de partida del mensaje (solo lo deducible del material).
+
+## Estructura del mensaje
+Como organizo el predicador su argumento, en puntos.
+
+## Exegesis de los textos citados
+Para cada versiculo mencionado:
+### N. Referencia
+> "texto en RVR1960"
+
+**Como lo uso el predicador.**
+**Contexto biblico original.**
+**Que significa en contexto.**
+**Por que es clave para el mensaje.**
+
+## Analisis teologico
+Las doctrinas que subyacen al mensaje.
+
+## Contexto historico y espiritual
+Trasfondo de los pasajes y su horizonte (si es deducible; si no, dilo).
+
+## Temas para profundizar
+Varios hilos de estudio personal, cada uno con su referencia y una pregunta.
+
+## Puente entonces a ahora
+El principio que se traslada a la vida actual.
+
+## Preguntas de reflexion
+Preguntas cerradas al contenido predicado, no genericas.
+
+## Aplicacion practica
+Pasos concretos y verificables.
+
+## Versiculo clave
+El versiculo de anclaje y por que.
+
+## Para profundizar
+Pasajes afines (marcados como apoyo si no los cito el predicador).
+
+IMPORTANTE: en espanol, exhaustivo y profundo, sin encabezados fuera de los indicados."""
+
+REQUIRED = ["## idea central", "## contexto de la predicacion", "## estructura del mensaje",
+            "## exegesis de los textos citados", "## analisis teologico", "## contexto historico y espiritual",
+            "## temas para profundizar", "## puente entonces a ahora", "## preguntas de reflexion",
+            "## aplicacion practica", "## versiculo clave", "## para profundizar"]
+
+
+def _norm(s):
+    return "".join(c for c in unicodedata.normalize("NFD", s.lower())
+                   if unicodedata.category(c) != "Mn")
+
+
+def count_sections(md):
+    n = _norm(md)
+    return sum(1 for s in REQUIRED if s in n)
+
 
 def clean_study(md):
-    # Eliminar seccion Oración sugerida si existe
-    md = re.sub(r'## Oración sugerida.*', '', md, flags=re.DOTALL)
-    return md.strip()
+    md = re.sub(r"## Oraci[oó]n sugerida.*", "", md, flags=re.DOTALL)
+    return md.strip() + "\n"
 
-def save_study(video_id, md):
-    ESTUDIOS_DIR.mkdir(exist_ok=True)
-    path = ESTUDIOS_DIR / f"{video_id}.md"
-    path.write_text(clean_study(md), encoding="utf-8")
-    return path
 
-def git_commit(new_files):
-    if not new_files:
+def nvidia_stream(messages, max_tokens):
+    payload = {"model": NVIDIA_MODEL, "messages": messages, "temperature": 0.7,
+               "top_p": 1, "max_tokens": max_tokens, "stream": True,
+               "chat_template_kwargs": {"thinking": False}}
+    req = urllib.request.Request(
+        NV_URL, data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {NVIDIA_KEY}",
+                 "Accept": "text/event-stream"}, method="POST")
+    t0 = time.time()
+    parts = []
+    finish = "?"
+    with urllib.request.urlopen(req, timeout=3600) as resp:
+        for raw in resp:
+            line = raw.decode("utf-8").strip()
+            if not line.startswith("data:"):
+                continue
+            chunk = line[5:].strip()
+            if chunk == "[DONE]":
+                break
+            try:
+                obj = json.loads(chunk)
+            except json.JSONDecodeError:
+                continue
+            choices = obj.get("choices") or []
+            if not choices:
+                continue
+            delta = choices[0].get("delta") or {}
+            if delta.get("content"):
+                parts.append(delta["content"])
+            if choices[0].get("finish_reason"):
+                finish = choices[0]["finish_reason"]
+    content = "".join(parts)
+    log(f"    nvidia: finish={finish} {time.time()-t0:.0f}s content={len(content)}")
+    return content, finish
+
+
+def generate_study(title, transcript):
+    """Genera el estudio con reintentos y continuacion. Devuelve markdown o None."""
+    tr = transcript
+    if len(tr) > 20000:
+        tr = tr[:14000] + "\n[...]\n" + tr[-6000:]
+    prompt = (
+        "Escribe el ESTUDIO BIBLICO FINAL en espanol de esta predicacion, directamente, "
+        "empezando por '## Idea central'.\n\n"
+        f"{NORMAS}\n\n{FORMAT_SPEC}\n\n"
+        f"Titulo: {title}\n\n"
+        "Transcripcion (inicio y final; el medio fue recortado):\n" + tr
+    )
+
+    for attempt in (1, 2):
+        log(f"    generando (intento {attempt})...")
+        messages = [{"role": "user", "content": prompt}]
+        full, finish = nvidia_stream(messages, 40000)
+        if not full:
+            continue  # 0 contenido: reintenta
+        # bucle de continuacion si se trunco
+        rounds = 0
+        while finish == "length" and full and rounds < 4:
+            if count_sections(full) == len(REQUIRED):
+                break
+            rounds += 1
+            log(f"    continuando (ronda {rounds})...")
+            messages.append({"role": "assistant", "content": full})
+            messages.append({"role": "user", "content": (
+                "Tu ultima frase quedo incompleta. Continua EXACTAMENTE donde te quedaste, "
+                "sin repetir nada. Completa la seccion en curso y termina el estudio con "
+                "todas las secciones restantes hasta '## Para profundizar' inclusive. "
+                "Responde solo con la continuacion del markdown.")})
+            piece, finish = nvidia_stream(messages, 16384)
+            if not piece:
+                break
+            full += piece
+        if count_sections(full) >= len(REQUIRED):
+            return clean_study(full)
+        if full:
+            return clean_study(full)  # incompleto pero util; se registra abajo
+    return None
+
+
+def git_commit_push(paths):
+    if not paths:
         return
     try:
-        import subprocess
-        subprocess.run(["git", "add"] + [str(p) for p in new_files], cwd=BASE_DIR, check=True, stdout=subprocess.DEVNULL)
-        msg = f"auto: generate {len(new_files)} studies"
-        subprocess.run(["git", "commit", "-m", msg], cwd=BASE_DIR, check=True, stdout=subprocess.DEVNULL)
-        subprocess.run(["git", "push"], cwd=BASE_DIR, check=True, stdout=subprocess.DEVNULL)
-        print(f"Git push: {len(new_files)} archivos")
-    except Exception as e:
-        print(f"Git error: {e}")
+        subprocess.run(["git", "add"] + paths, cwd=BASE, check=True)
+        msg = f"auto: generate {len(paths)} estudio(s) biblico(s)"
+        subprocess.run(["git", "commit", "-m", msg], cwd=BASE, check=True)
+        r = subprocess.run(["git", "push", "origin", "master"], cwd=BASE, capture_output=True, text=True)
+        if r.returncode == 0:
+            log("git: push OK")
+        else:
+            log(f"git: push fallo (r.returncode) — pendiente manual: {r.stderr.strip()[:150]}")
+    except subprocess.CalledProcessError as e:
+        log(f"git error: {e}")
+
 
 def main():
-    if not ADMIN_KEY:
-        print("ADMIN_KEY no configurado")
-        return
-    videos = get_videos()
+    if not NVIDIA_KEY:
+        log("FALTA NVIDIA_API_KEY en .env")
+        sys.exit(1)
+    log("=== inicio sync ===")
+    try:
+        videos = get_videos()
+    except Exception as e:
+        log(f"lista de videos fallo: {type(e).__name__}: {str(e)[:150]}")
+        sys.exit(1)
+    log(f"{len(videos)} videos con >= {MIN_AGE_DAYS} dias")
+
     new_files = []
     for v in videos:
-        vid = v["id"]
+        vid = v.get("id")
         title = v.get("title", "")
-        if study_exists(vid):
+        out = BASE / "estudios" / f"{vid}.md"
+        if out.exists() and out.stat().st_size > 1000:
             continue
-        print(f"Generando estudio para {vid} - {title[:60]}")
-        try:
-            md = generate_study(vid, title)
-            if not md.strip():
-                print(f"  Sin contenido, saltando")
-                continue
-            path = save_study(vid, md)
-            new_files.append(path)
-            print(f"  Guardado {path.name}")
-            time.sleep(5)  # rate limit suave
-        except Exception as e:
-            print(f"  Error: {e}")
-    git_commit(new_files)
-    print("Sync completo")
+        log(f"[{vid}] {title[:70]}")
+        tr = get_transcript(vid)
+        if not tr:
+            log("    sin transcripcion aun; se reintentara en la proxima ejecucion")
+            continue
+        log(f"    transcript len={len(tr)}")
+        md = generate_study(title, tr)
+        if not md:
+            log("    generacion fallo; se reintentara en la proxima ejecucion")
+            continue
+        secs = count_sections(md)
+        out.parent.mkdir(exist_ok=True)
+        out.write_text(md, encoding="utf-8")
+        new_files.append(str(out.relative_to(BASE.parent.parent)).replace("\\", "/"))
+        log(f"    guardado ({len(md)} chars, {secs}/{len(REQUIRED)} secciones)")
+        if secs < len(REQUIRED):
+            log(f"    AVISO: secciones incompletas")
+        time.sleep(3)
+    if new_files:
+        git_commit_push(new_files)
+    else:
+        log("nada nuevo que generar")
+    log("=== fin sync ===")
+
 
 if __name__ == "__main__":
     main()
