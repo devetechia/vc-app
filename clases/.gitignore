@@ -9,3 +9,4 @@ Thumbs.db
 *credentials*
 *token*
 sync_studies.log
+.sync_studies.lock

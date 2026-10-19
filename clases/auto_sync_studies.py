@@ -44,19 +44,61 @@ NVIDIA_KEY = ENV.get("NVIDIA_API_KEY", "")
 NVIDIA_MODEL = ENV.get("NVIDIA_MODEL", "z-ai/glm-5.3")
 NV_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 MIN_AGE_DAYS = 2
+LOCK_FILE = BASE / ".sync_studies.lock"
 
 
 def log(msg):
     line = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {msg}"
-    print(line, flush=True)
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
-        f.write(line + "\n")
+    try:
+        print(line, flush=True)
+    except Exception:
+        pass
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+    except Exception:
+        pass
 
 
-def http_get_json(url, timeout):
-    req = urllib.request.Request(url, headers={"User-Agent": "vc-auto-sync/1.0"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode("utf-8"))
+def acquire_lock():
+    """Evita ejecuciones solapadas (ventana de 12h)."""
+    if LOCK_FILE.exists():
+        try:
+            age = time.time() - LOCK_FILE.stat().st_mtime
+            if age < 12 * 3600:
+                return False
+        except OSError:
+            return False
+    try:
+        LOCK_FILE.write_text(str(os.getpid()), encoding="utf-8")
+    except OSError:
+        return False
+    return True
+
+
+def release_lock():
+    try:
+        LOCK_FILE.unlink()
+    except OSError:
+        pass
+
+
+def http_get_json(url, timeout, retries=3):
+    last = None
+    for attempt in range(1, retries + 1):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "vc-auto-sync/1.0"})
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except Exception as e:
+            last = e
+            if attempt < retries:
+                wait = 20 * attempt
+                log(f"    reintento {attempt}/{retries - 1} en {wait}s ({type(e).__name__})")
+                time.sleep(wait)
+    raise last
 
 
 def get_videos():
@@ -76,7 +118,7 @@ def get_videos():
 
 def get_transcript(video_id):
     try:
-        data = http_get_json(f"{FLY_API_URL}/api/transcript?videoId={video_id}", timeout=420)
+        data = http_get_json(f"{FLY_API_URL}/api/transcript?videoId={video_id}", timeout=420, retries=3)
         tr = data.get("transcript") or ""
         if len(tr) > 500:
             return tr
@@ -261,6 +303,16 @@ def main():
     if not NVIDIA_KEY:
         log("FALTA NVIDIA_API_KEY en .env")
         sys.exit(1)
+    if not acquire_lock():
+        log("ya hay una ejecucion en curso; se sale")
+        sys.exit(0)
+    try:
+        run_sync()
+    finally:
+        release_lock()
+
+
+def run_sync():
     log("=== inicio sync ===")
     try:
         videos = get_videos()
@@ -269,7 +321,6 @@ def main():
         sys.exit(1)
     log(f"{len(videos)} videos con >= {MIN_AGE_DAYS} dias")
 
-    new_files = []
     for v in videos:
         vid = v.get("id")
         title = v.get("title", "")
@@ -277,27 +328,29 @@ def main():
         if out.exists() and out.stat().st_size > 1000:
             continue
         log(f"[{vid}] {title[:70]}")
-        tr = get_transcript(vid)
-        if not tr:
-            log("    sin transcripcion aun; se reintentara en la proxima ejecucion")
+        try:
+            tr = get_transcript(vid)
+            if not tr:
+                log("    sin transcripcion aun; se reintentara en la proxima ejecucion")
+                continue
+            log(f"    transcript len={len(tr)}")
+            md = generate_study(title, tr)
+            if not md:
+                log("    generacion fallo; se reintentara en la proxima ejecucion")
+                continue
+            secs = count_sections(md)
+            out.parent.mkdir(exist_ok=True)
+            out.write_text(md, encoding="utf-8")
+            rel = str(out.relative_to(BASE.parent.parent)).replace("\\", "/")
+            log(f"    guardado ({len(md)} chars, {secs}/{len(REQUIRED)} secciones)")
+            if secs < len(REQUIRED):
+                log("    AVISO: secciones incompletas")
+            # commit+push por video: si el proceso muere, no se pierde lo generado
+            git_commit_push([rel])
+        except Exception as e:
+            log(f"    ERROR en {vid}: {type(e).__name__}: {str(e)[:200]}")
             continue
-        log(f"    transcript len={len(tr)}")
-        md = generate_study(title, tr)
-        if not md:
-            log("    generacion fallo; se reintentara en la proxima ejecucion")
-            continue
-        secs = count_sections(md)
-        out.parent.mkdir(exist_ok=True)
-        out.write_text(md, encoding="utf-8")
-        new_files.append(str(out.relative_to(BASE.parent.parent)).replace("\\", "/"))
-        log(f"    guardado ({len(md)} chars, {secs}/{len(REQUIRED)} secciones)")
-        if secs < len(REQUIRED):
-            log(f"    AVISO: secciones incompletas")
         time.sleep(3)
-    if new_files:
-        git_commit_push(new_files)
-    else:
-        log("nada nuevo que generar")
     log("=== fin sync ===")
 
 
