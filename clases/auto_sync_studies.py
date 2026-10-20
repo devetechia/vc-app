@@ -148,8 +148,85 @@ def get_transcript(video_id):
         if len(tr) > 500:
             return tr
         return None
+    except urllib.error.HTTPError:
+        log("    sin transcripcion en la API; se intenta Whisper local")
     except Exception as e:
         log(f"    transcript error: {type(e).__name__}: {str(e)[:120]}")
+    if ENV.get("WHISPER_FALLBACK", "1") != "1":
+        return None
+    return get_transcript_whisper(video_id)
+
+
+def get_transcript_whisper(video_id):
+    """Fallback: descarga el audio con yt-dlp (IP residencial + cookies) y transcribe con Whisper.
+    Necesario para videos sin subtitulos en YouTube (TranscriptAPI 402 / sin caption tracks)."""
+    import shutil
+    tmp = Path(os.environ.get("TEMP", "."))
+    cache = tmp / f"whisper_{video_id}.json"
+    if cache.exists():
+        try:
+            d = json.loads(cache.read_text(encoding="utf-8"))
+            if len(d.get("transcript") or "") > 500:
+                log(f"    whisper cache: {len(d['transcript'])} chars")
+                return d["transcript"]
+        except Exception:
+            pass
+    try:
+        import yt_dlp
+    except ImportError:
+        log("    yt-dlp no instalado; no se puede usar el fallback Whisper")
+        return None
+    try:
+        import faster_whisper
+    except ImportError:
+        log("    faster-whisper no instalado; no se puede usar el fallback Whisper")
+        return None
+
+    audio = tmp / f"whisper_{video_id}.mp3"
+    cookies = BASE / "cookies.txt"
+    opts = {
+        "format": "bestaudio/best",
+        "outtmpl": str(audio.with_suffix("")),
+        "quiet": True,
+        "no_warnings": True,
+        "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3"}],
+    }
+    if cookies.exists():
+        opts["cookiefile"] = str(cookies)
+    try:
+        log("    descargando audio (yt-dlp)...")
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
+        if not audio.exists():
+            return None
+        log("    transcribiendo con Whisper (puede tardar minutos)...")
+        import av
+        import numpy as np
+        container = av.open(str(audio))
+        resampler = av.AudioResampler(format="s16", layout="mono", rate=16000)
+        chunks = []
+        for frame in container.decode(audio=0):
+            for rf in resampler.resample(frame):
+                chunks.append(rf.to_ndarray().reshape(-1))
+        for rf in resampler.resample(None):
+            chunks.append(rf.to_ndarray().reshape(-1))
+        pcm = np.concatenate(chunks).astype(np.float32) / 32768.0
+        model = faster_whisper.WhisperModel("base", device="cpu", compute_type="int8")
+        segments, info = model.transcribe(pcm, language="es", beam_size=5)
+        parts = [s.text.strip() for s in segments if s.text.strip()]
+        text = " ".join(parts)
+        if len(text) < 500:
+            return None
+        cache.write_text(json.dumps({"transcript": text, "source": "whisper-local"}, ensure_ascii=False),
+                         encoding="utf-8")
+        try:
+            audio.unlink()
+        except OSError:
+            pass
+        log(f"    whisper listo: {len(text)} chars")
+        return text
+    except Exception as e:
+        log(f"    whisper fallo: {type(e).__name__}: {str(e)[:150]}")
         return None
 
 
