@@ -62,20 +62,39 @@ def log(msg):
         pass
 
 
+def _pid_alive(pid):
+    try:
+        out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+                             capture_output=True, text=True, timeout=20).stdout
+        return str(pid) in out
+    except Exception:
+        return True  # si no se puede comprobar, asumir vivo (fail-safe)
+
+
 def acquire_lock():
-    """Evita ejecuciones solapadas (ventana de 12h)."""
+    """Evita ejecuciones solapadas. Lock con PID: si el proceso murio, se recicla."""
     if LOCK_FILE.exists():
         try:
+            content = LOCK_FILE.read_text(encoding="utf-8").strip()
             age = time.time() - LOCK_FILE.stat().st_mtime
-            if age < 12 * 3600:
+            pid = int(content) if content.isdigit() else 0
+            if pid and _pid_alive(pid) and age < 12 * 3600:
                 return False
-        except OSError:
+            log("lock obsoleto (proceso muerto); se recicla")
+        except Exception:
             return False
     try:
         LOCK_FILE.write_text(str(os.getpid()), encoding="utf-8")
     except OSError:
         return False
     return True
+
+
+def heartbeat_lock():
+    try:
+        LOCK_FILE.write_text(str(os.getpid()), encoding="utf-8")
+    except OSError:
+        pass
 
 
 def release_lock():
@@ -92,6 +111,9 @@ def http_get_json(url, timeout, retries=3):
             req = urllib.request.Request(url, headers={"User-Agent": "vc-auto-sync/1.0"})
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 return json.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            # Error del servidor (p.ej. 500 sin transcripcion): no reintentar, no hay sentido
+            raise
         except Exception as e:
             last = e
             if attempt < retries:
@@ -253,12 +275,22 @@ def generate_study(title, transcript):
         "Transcripcion (inicio y final; el medio fue recortado):\n" + tr
     )
 
-    for attempt in (1, 2):
+    for attempt in (1, 2, 3):
         log(f"    generando (intento {attempt})...")
         messages = [{"role": "user", "content": prompt}]
-        full, finish = nvidia_stream(messages, 40000)
+        try:
+            full, finish = nvidia_stream(messages, 40000)
+        except Exception as e:
+            log(f"    nvidia fallo: {type(e).__name__}: {str(e)[:120]}")
+            if attempt < 3:
+                time.sleep(30 * attempt)
+                continue
+            raise
         if not full:
-            continue  # 0 contenido: reintenta
+            log("    sin contenido; reintentando")
+            if attempt < 3:
+                time.sleep(30)
+            continue
         # bucle de continuacion si se trunco
         rounds = 0
         while finish == "length" and full and rounds < 4:
@@ -272,14 +304,16 @@ def generate_study(title, transcript):
                 "sin repetir nada. Completa la seccion en curso y termina el estudio con "
                 "todas las secciones restantes hasta '## Para profundizar' inclusive. "
                 "Responde solo con la continuacion del markdown.")})
-            piece, finish = nvidia_stream(messages, 16384)
+            try:
+                piece, finish = nvidia_stream(messages, 16384)
+            except Exception as e:
+                log(f"    continuacion fallo: {type(e).__name__}")
+                break
             if not piece:
                 break
             full += piece
-        if count_sections(full) >= len(REQUIRED):
-            return clean_study(full)
         if full:
-            return clean_study(full)  # incompleto pero util; se registra abajo
+            return clean_study(full)
     return None
 
 
@@ -328,6 +362,7 @@ def run_sync():
         if out.exists() and out.stat().st_size > 1000:
             continue
         log(f"[{vid}] {title[:70]}")
+        heartbeat_lock()
         try:
             tr = get_transcript(vid)
             if not tr:
