@@ -275,21 +275,21 @@ def generate_study(title, transcript):
         "Transcripcion (inicio y final; el medio fue recortado):\n" + tr
     )
 
-    for attempt in (1, 2, 3):
+    for attempt in (1, 2, 3, 4, 5):
         log(f"    generando (intento {attempt})...")
         messages = [{"role": "user", "content": prompt}]
         try:
             full, finish = nvidia_stream(messages, 40000)
         except Exception as e:
             log(f"    nvidia fallo: {type(e).__name__}: {str(e)[:120]}")
-            if attempt < 3:
+            if attempt < 5:
                 time.sleep(30 * attempt)
                 continue
             raise
         if not full:
             log("    sin contenido; reintentando")
-            if attempt < 3:
-                time.sleep(30)
+            if attempt < 5:
+                time.sleep(30 * attempt)
             continue
         # bucle de continuacion si se trunco
         rounds = 0
@@ -376,7 +376,7 @@ def run_sync():
             secs = count_sections(md)
             out.parent.mkdir(exist_ok=True)
             out.write_text(md, encoding="utf-8")
-            rel = str(out.relative_to(BASE.parent.parent)).replace("\\", "/")
+            rel = f"estudios/{vid}.md"  # git se ejecuta con cwd=BASE (clases/)
             log(f"    guardado ({len(md)} chars, {secs}/{len(REQUIRED)} secciones)")
             if secs < len(REQUIRED):
                 log("    AVISO: secciones incompletas")
