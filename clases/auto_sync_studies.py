@@ -25,7 +25,10 @@ import urllib.request
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-sys.stdout.reconfigure(encoding="utf-8")
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass  # pythonw.exe no tiene stdout
 
 BASE = Path(__file__).parent
 LOG_FILE = BASE / "sync_studies.log"
@@ -390,4 +393,17 @@ def run_sync():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception:
+        import traceback
+        try:
+            with open(LOG_FILE, "a", encoding="utf-8") as f:
+                f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] EXCEPCION FATAL\n")
+                f.write(traceback.format_exc())
+                f.flush()
+        except Exception:
+            pass
+        raise
