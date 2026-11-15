@@ -188,8 +188,8 @@
             // Renderizar Dashboard de Progreso
             renderProgressDashboard('progressDashboardContainer', videos);
 
-            // Renderizar 4 Predicaciones Recientes en portada
-            const homeVideos = (videos || []).slice(0, 4);
+            // Renderizar 3 Predicaciones Recientes en portada
+            const homeVideos = (videos || []).slice(0, 3);
             const grid = document.getElementById('homeSermons');
             grid.innerHTML = homeVideos.map((v, i) => {
                 const badges = getSermonBadges(v.id, i, false);
