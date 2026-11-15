@@ -90,8 +90,9 @@ button { cursor: pointer; font-family: inherit; }
 
 /* SERMONS GRID */
 .sermons-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; }
-#homeSermons.sermons-grid { display: flex; flex-wrap: nowrap; gap: 16px; overflow-x: auto; padding-bottom: 16px; }
-#homeSermons.sermons-grid .sermon-card { min-width: 280px; flex: 0 0 auto; }
+#homeSermons.sermons-grid { display: flex; flex-wrap: nowrap; gap: 12px; overflow-x: hidden; padding-bottom: 8px; }
+#homeSermons.sermons-grid .sermon-card { min-width: 0; flex: 1 1 0; }
+#homeSermons.sermons-grid .sermon-thumb { aspect-ratio: 16/9; }
 
 /* SERMON CARDS */
 .sermon-card { background: var(--bg-card); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); transition: all 0.3s ease; cursor: pointer; }
